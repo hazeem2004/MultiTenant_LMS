@@ -9,12 +9,13 @@ class AuthRepository {
     const AppUser(uid: 'stud-1', email: 'student@devcohort.com', role: 'student'),
   ];
 
+  static String _currentRole = 'instructor';
+
+  static void setRole(String role) => _currentRole = role;
+
   Future<AppUser?> signInWithGitHub() async {
-    // Simulate network delay
     await Future.delayed(const Duration(seconds: 1));
-    // For now, always return the instructor mock for testing the dashboard.
-    // In actual implementation, this will use firebase_auth's signInWithProvider
-    return _dummyUsers.first; // Return the dummy instructor
+    return _dummyUsers.firstWhere((u) => u.role == _currentRole);
   }
 
   Future<void> signOut() async {
