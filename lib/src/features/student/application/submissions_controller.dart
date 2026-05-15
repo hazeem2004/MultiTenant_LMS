@@ -2,14 +2,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/submission_repository.dart';
 import '../domain/submission.dart';
 
-// Provider to fetch a single submission for a student/assignment
-final studentSubmissionProvider = FutureProvider.family<Submission?, ({String studentId, String assignmentId})>((ref, arg) {
-  return ref.watch(submissionRepositoryProvider).getStudentSubmission(arg.studentId, arg.assignmentId);
+// Provider to fetch a single submission for a student/assignment (Real-time)
+final studentSubmissionProvider = StreamProvider.family<Submission?, ({String studentId, String assignmentId})>((ref, arg) {
+  return ref.watch(submissionRepositoryProvider).watchStudentSubmission(arg.studentId, arg.assignmentId);
 });
 
-// Provider to fetch all submissions for an assignment (Instructor View)
-final assignmentSubmissionsProvider = FutureProvider.family<List<Submission>, String>((ref, assignmentId) {
-  return ref.watch(submissionRepositoryProvider).getSubmissionsForAssignment(assignmentId);
+// Provider to fetch all submissions for an assignment (Instructor View - Real-time)
+final assignmentSubmissionsProvider = StreamProvider.family<List<Submission>, String>((ref, assignmentId) {
+  return ref.watch(submissionRepositoryProvider).watchSubmissionsForAssignment(assignmentId);
 });
 
 class SubmissionsController {
@@ -23,7 +23,7 @@ class SubmissionsController {
     String? liveDemoUrl,
   }) async {
     final submission = Submission(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: '', // Firestore will generate an ID if we use add(), or we can use a custom logic
       assignmentId: assignmentId,
       studentId: studentId,
       githubUrl: githubUrl,
@@ -31,10 +31,6 @@ class SubmissionsController {
       submittedAt: DateTime.now(),
     );
     await ref.read(submissionRepositoryProvider).submitAssignment(submission);
-    
-    // Invalidate providers to refresh UI
-    ref.invalidate(studentSubmissionProvider);
-    ref.invalidate(assignmentSubmissionsProvider(assignmentId));
   }
 
   Future<void> gradeSubmission({
@@ -44,10 +40,6 @@ class SubmissionsController {
     required String feedback,
   }) async {
     await ref.read(submissionRepositoryProvider).gradeSubmission(submissionId, status, feedback);
-    
-    // Invalidate providers to refresh UI
-    ref.invalidate(studentSubmissionProvider);
-    ref.invalidate(assignmentSubmissionsProvider(assignmentId));
   }
 }
 

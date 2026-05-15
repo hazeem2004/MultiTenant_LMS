@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "824379492369",
+    "project_id": "multitenant-lms",
+    "storage_bucket": "multitenant-lms.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:824379492369:android:1222e0336dae5a7e9f89b0",
+        "android_client_info": {
+          "package_name": "com.devcohort.devcohort_lms"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDlZAegx-38ihkyOxSLU1vOEHpPHwPs3O0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

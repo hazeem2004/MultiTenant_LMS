@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../auth/application/auth_controller.dart';
-import '../data/enrollment_repository.dart';
+import '../application/student_cohort_controller.dart';
 import '../../instructor/data/cohort_repository.dart';
 
 class JoinCohortScreen extends ConsumerWidget {
@@ -14,45 +13,89 @@ class JoinCohortScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Join Cohort')),
       body: FutureBuilder(
-        future: _findCohortByToken(ref, token),
+        future: ref.read(cohortRepositoryProvider).getCohortByToken(token),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
-            return const Center(child: Text('Invalid or expired invite link.'));
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                  const SizedBox(height: 16),
+                  const Text('Invalid or expired invite link.', style: TextStyle(fontSize: 18)),
+                  const SizedBox(height: 24),
+                  TextButton(
+                    onPressed: () => context.go('/student'),
+                    child: const Text('Back to Dashboard'),
+                  ),
+                ],
+              ),
+            );
           }
           
-          final cohortId = snapshot.data!;
+          final cohort = snapshot.data!;
           
           return Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 400),
+              constraints: const BoxConstraints(maxWidth: 450),
               child: Card(
                 child: Padding(
                   padding: const EdgeInsets.all(32.0),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.school, size: 64),
+                      CircleAvatar(
+                        radius: 40,
+                        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                        child: Icon(Icons.school, size: 40, color: Theme.of(context).colorScheme.primary),
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        'Invitation to Join',
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        cohort.name,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Theme.of(context).colorScheme.primary),
+                      ),
                       const SizedBox(height: 16),
-                      Text('You have been invited to join a cohort.',
-                          style: Theme.of(context).textTheme.titleMedium,
-                          textAlign: TextAlign.center),
+                      Text(
+                        cohort.description,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
                       const SizedBox(height: 32),
-                      FilledButton(
-                        onPressed: () async {
-                          final user = ref.read(authControllerProvider).value;
-                          if (user != null) {
-                            await ref.read(enrollmentRepositoryProvider).enrollStudent(user.uid, cohortId);
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: FilledButton(
+                          onPressed: () async {
+                            final error = await ref.read(studentCohortsProvider.notifier).joinCohort(token);
                             if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enrollment submitted! Waiting for instructor approval.')));
-                              context.go('/student');
+                              if (error == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Successfully joined the cohort!')),
+                                );
+                                context.go('/student');
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(error)),
+                                );
+                              }
                             }
-                          }
-                        },
-                        child: const Text('Accept Invitation'),
-                      )
+                          },
+                          child: const Text('Join Cohort'),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextButton(
+                        onPressed: () => context.go('/student'),
+                        child: const Text('Maybe Later'),
+                      ),
                     ],
                   ),
                 ),
@@ -62,15 +105,5 @@ class JoinCohortScreen extends ConsumerWidget {
         },
       ),
     );
-  }
-
-  // Helper just for the mock data demonstration
-  Future<String?> _findCohortByToken(WidgetRef ref, String token) async {
-    // In a real app with Firebase, we would query `cohorts` collection where `inviteToken == token`.
-    // Since we're using a mocked repository locally, and we only exposed 'fetchCohortsForInstructor',
-    // I will mock this tightly. If the token is 'TEST', return a dummy ID, else we would need a list of all cohorts.
-    // For this Mock phase, we'll pretend the token is valid for 'cohort-1'.
-    await Future.delayed(const Duration(milliseconds: 500));
-    return 'cohort-1'; // Fake return just to permit the flow.
   }
 }

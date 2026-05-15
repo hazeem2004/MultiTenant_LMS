@@ -1,47 +1,72 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/submission.dart';
 
 class SubmissionRepository {
-  // Mock data: In-memory store of submissions
-  final List<Submission> _submissions = [];
+  final FirebaseFirestore _firestore;
+  SubmissionRepository(this._firestore);
+
+  CollectionReference<Submission> get _submissionsRef =>
+      _firestore.collection('submissions').withConverter<Submission>(
+            fromFirestore: (snapshot, _) =>
+                Submission.fromMap(snapshot.data()!, snapshot.id),
+            toFirestore: (submission, _) => submission.toMap(),
+          );
+
+  Stream<List<Submission>> watchSubmissionsForAssignment(String assignmentId) {
+    return _submissionsRef
+        .where('assignmentId', isEqualTo: assignmentId)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => doc.data()).toList());
+  }
+
+  Stream<Submission?> watchStudentSubmission(String studentId, String assignmentId) {
+    return _submissionsRef
+        .where('studentId', isEqualTo: studentId)
+        .where('assignmentId', isEqualTo: assignmentId)
+        .limit(1)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.isNotEmpty ? snapshot.docs.first.data() : null);
+  }
 
   Future<List<Submission>> getSubmissionsForAssignment(String assignmentId) async {
-    await Future.delayed(const Duration(milliseconds: 300));
-    return _submissions.where((s) => s.assignmentId == assignmentId).toList();
+    final snapshot = await _submissionsRef
+        .where('assignmentId', isEqualTo: assignmentId)
+        .get();
+    return snapshot.docs.map((doc) => doc.data()).toList();
   }
 
   Future<Submission?> getStudentSubmission(String studentId, String assignmentId) async {
-    await Future.delayed(const Duration(milliseconds: 300));
-    try {
-      return _submissions.firstWhere(
-        (s) => s.studentId == studentId && s.assignmentId == assignmentId,
-      );
-    } catch (_) {
-      return null;
+    final snapshot = await _submissionsRef
+        .where('studentId', isEqualTo: studentId)
+        .where('assignmentId', isEqualTo: assignmentId)
+        .limit(1)
+        .get();
+    
+    if (snapshot.docs.isNotEmpty) {
+      return snapshot.docs.first.data();
     }
+    return null;
   }
 
   Future<void> submitAssignment(Submission submission) async {
-    await Future.delayed(const Duration(milliseconds: 500));
-    // Remove existing if any (resubmit)
-    _submissions.removeWhere(
-      (s) => s.studentId == submission.studentId && s.assignmentId == submission.assignmentId,
-    );
-    _submissions.add(submission);
+    // Check if exists to update or add new
+    final existing = await getStudentSubmission(submission.studentId, submission.assignmentId);
+    if (existing != null) {
+      await _submissionsRef.doc(existing.id).set(submission);
+    } else {
+      await _submissionsRef.add(submission);
+    }
   }
 
   Future<void> gradeSubmission(String submissionId, SubmissionStatus status, String feedback) async {
-    await Future.delayed(const Duration(milliseconds: 500));
-    final index = _submissions.indexWhere((s) => s.id == submissionId);
-    if (index != -1) {
-      _submissions[index] = _submissions[index].copyWith(
-        status: status,
-        instructorFeedback: feedback,
-      );
-    }
+    await _submissionsRef.doc(submissionId).update({
+      'status': status.name,
+      'instructorFeedback': feedback,
+    });
   }
 }
 
 final submissionRepositoryProvider = Provider<SubmissionRepository>((ref) {
-  return SubmissionRepository();
+  return SubmissionRepository(FirebaseFirestore.instance);
 });

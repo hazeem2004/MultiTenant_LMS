@@ -1,35 +1,55 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/enrollment.dart';
 
 class EnrollmentRepository {
-  final List<Enrollment> _enrollments = [];
+  final FirebaseFirestore _firestore;
+  EnrollmentRepository(this._firestore);
+
+  CollectionReference<Map<String, dynamic>> get _enrollmentsRef => _firestore.collection('enrollments');
+
+  Future<List<Enrollment>> getEnrollmentsForStudent(String studentId) async {
+    final snapshot = await _enrollmentsRef.where('studentId', isEqualTo: studentId).get();
+    return snapshot.docs.map((doc) => Enrollment.fromMap(doc.id, doc.data())).toList();
+  }
 
   Future<List<Enrollment>> getEnrollmentsForCohort(String cohortId) async {
-    await Future.delayed(const Duration(milliseconds: 300));
-    return _enrollments.where((e) => e.cohortId == cohortId).toList();
+    final snapshot = await _enrollmentsRef.where('cohortId', isEqualTo: cohortId).get();
+    return snapshot.docs.map((doc) => Enrollment.fromMap(doc.id, doc.data())).toList();
   }
 
   Future<Enrollment> enrollStudent(String studentId, String cohortId) async {
-    await Future.delayed(const Duration(milliseconds: 300));
-    final newEnrollment = Enrollment(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+    // Check if already enrolled
+    final existing = await _enrollmentsRef
+        .where('studentId', isEqualTo: studentId)
+        .where('cohortId', isEqualTo: cohortId)
+        .limit(1)
+        .get();
+    
+    if (existing.docs.isNotEmpty) {
+      return Enrollment.fromMap(existing.docs.first.id, existing.docs.first.data());
+    }
+
+    final docRef = await _enrollmentsRef.add({
+      'cohortId': cohortId,
+      'studentId': studentId,
+      'status': 'active',
+      'enrolledAt': FieldValue.serverTimestamp(),
+    });
+
+    return Enrollment(
+      id: docRef.id,
       cohortId: cohortId,
       studentId: studentId,
-      status: 'pending',
+      status: 'active',
     );
-    _enrollments.add(newEnrollment);
-    return newEnrollment;
   }
 
   Future<void> updateEnrollmentStatus(String enrollmentId, String newStatus) async {
-    await Future.delayed(const Duration(milliseconds: 300));
-    final index = _enrollments.indexWhere((e) => e.id == enrollmentId);
-    if (index != -1) {
-      _enrollments[index] = _enrollments[index].copyWith(status: newStatus);
-    }
+    await _enrollmentsRef.doc(enrollmentId).update({'status': newStatus});
   }
 }
 
 final enrollmentRepositoryProvider = Provider<EnrollmentRepository>((ref) {
-  return EnrollmentRepository();
+  return EnrollmentRepository(FirebaseFirestore.instance);
 });

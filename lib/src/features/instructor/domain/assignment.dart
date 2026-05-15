@@ -13,6 +13,25 @@ class Assignment {
     required this.dueDate,
   });
 
+  Map<String, dynamic> toMap() {
+    return {
+      'weekId': weekId,
+      'title': title,
+      'descriptionText': descriptionText,
+      'dueDate': dueDate.toIso8601String(),
+    };
+  }
+
+  factory Assignment.fromMap(Map<String, dynamic> map, String id) {
+    return Assignment(
+      id: id,
+      weekId: map['weekId'] as String,
+      title: map['title'] as String,
+      descriptionText: map['descriptionText'] as String,
+      dueDate: DateTime.parse(map['dueDate'] as String),
+    );
+  }
+
   Assignment copyWith({
     String? title,
     String? descriptionText,

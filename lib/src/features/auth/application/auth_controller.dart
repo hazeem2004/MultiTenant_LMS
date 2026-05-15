@@ -5,8 +5,15 @@ import '../data/auth_repository.dart';
 class AuthController extends Notifier<AsyncValue<AppUser?>> {
   @override
   AsyncValue<AppUser?> build() {
-    // Initial state is null (no user logged in)
-    return const AsyncData(null);
+    final repo = ref.watch(authRepositoryProvider);
+    
+    repo.authStateChanges().listen((user) {
+      state = AsyncData(user);
+    }, onError: (e) {
+      state = AsyncError(e, StackTrace.current);
+    });
+
+    return const AsyncLoading();
   }
 
   Future<void> signInWithGitHub() async {

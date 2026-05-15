@@ -28,4 +28,15 @@ class Cohort {
       createdAt: createdAt,
     );
   }
+
+  factory Cohort.fromMap(String id, Map<String, dynamic> map) {
+    return Cohort(
+      id: id,
+      name: map['name'] as String,
+      description: map['description'] as String,
+      instructorId: map['instructorId'] as String,
+      inviteToken: map['inviteToken'] as String,
+      createdAt: (map['createdAt'] as dynamic)?.toDate() ?? DateTime.now(),
+    );
+  }
 }

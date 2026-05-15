@@ -8,6 +8,7 @@ import '../../student/application/submissions_controller.dart';
 import '../../student/domain/submission.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../data/cohort_repository.dart';
 
 class CohortDetailScreen extends ConsumerWidget {
   final String cohortId;
@@ -243,20 +244,30 @@ class _StudentsTabView extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Invite Link', style: Theme.of(context).textTheme.titleMedium),
+                    Text('Secure Invite Link (TTL)', style: Theme.of(context).textTheme.titleMedium),
                     const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(child: SelectableText('http://localhost:8085/join?token=$inviteToken', style: const TextStyle(fontWeight: FontWeight.bold))),
-                        IconButton(
-                          icon: const Icon(Icons.copy),
-                          onPressed: () {
-                            Clipboard.setData(ClipboardData(text: 'http://localhost:8085/join?token=$inviteToken'));
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Copied to clipboard')));
-                          },
-                        )
-                      ],
-                    )
+                    const Text('Generate a secure link that expires in 24 hours.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    const SizedBox(height: 16),
+                    Center(
+                      child: FilledButton.icon(
+                        icon: const Icon(Icons.link),
+                        label: const Text('Generate & Copy Link'),
+                        onPressed: () async {
+                          final token = await ref.read(cohortRepositoryProvider).generateTTLToken(cohortId);
+                          final link = 'devcohort://join?token=$token';
+                          await Clipboard.setData(ClipboardData(text: link));
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Copied: $link'), behavior: SnackBarBehavior.floating)
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Divider(),
+                    const SizedBox(height: 8),
+                    Text('Permanent Token: $inviteToken', style: const TextStyle(fontSize: 10, color: Colors.grey)),
                   ],
                 ),
               ),
@@ -364,9 +375,14 @@ class _ReviewTabViewState extends ConsumerState<_ReviewTabView> {
                       final activeStudents = enrollments.where((e) => e.status == 'active').toList();
                       if (activeStudents.isEmpty) return const Text('No active students to review.');
                       
-                      return ListView.separated(
+                      return GridView.builder(
+                        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 400,
+                          mainAxisExtent: 180,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                        ),
                         itemCount: activeStudents.length,
-                        separatorBuilder: (_, __) => const Divider(),
                         itemBuilder: (context, index) {
                           final student = activeStudents[index];
                           final submissionAsync = ref.watch(studentSubmissionProvider((
@@ -375,13 +391,13 @@ class _ReviewTabViewState extends ConsumerState<_ReviewTabView> {
                           )));
 
                           return submissionAsync.when(
-                            data: (submission) => _ReviewRow(
+                            data: (submission) => _ReviewCard(
                               studentId: student.studentId,
                               submission: submission,
                               onGrade: () => _showGradeDrawer(context, ref, _selectedAssignmentId!, submission),
                             ),
-                            loading: () => const ListTile(title: Text('Loading submission...')),
-                            error: (e, __) => ListTile(title: Text('Error: $e')),
+                            loading: () => const Card(child: Center(child: CircularProgressIndicator())),
+                            error: (e, __) => Card(child: Center(child: Text('Error: $e'))),
                           );
                         },
                       );
@@ -407,82 +423,115 @@ class _ReviewTabViewState extends ConsumerState<_ReviewTabView> {
         ? SubmissionStatus.pendingGrade 
         : submission.status;
 
-    showModalBottomSheet(
+    showGeneralDialog(
       context: context,
-      isScrollControlled: true,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModalState) => Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
-            left: 24,
-            right: 24,
-            top: 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Grade Submission', style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(height: 8),
-              Text('Student: ${submission.studentId}', style: const TextStyle(color: Colors.grey)),
-              const SizedBox(height: 16),
-              const Text('Set Status:', style: TextStyle(fontWeight: FontWeight.bold)),
-              Row(
-                children: [
-                  _StatusOption(
-                    status: SubmissionStatus.passed,
-                    current: selectedStatus,
-                    onSelected: (s) => setModalState(() => selectedStatus = s),
-                  ),
-                  const SizedBox(width: 8),
-                  _StatusOption(
-                    status: SubmissionStatus.failed,
-                    current: selectedStatus,
-                    onSelected: (s) => setModalState(() => selectedStatus = s),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: feedbackCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Feedback (Markdown supported)',
-                  border: OutlineInputBorder(),
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss',
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (ctx, anim1, anim2) {
+        return Align(
+          alignment: Alignment.centerRight,
+          child: Material(
+            elevation: 16,
+            child: Container(
+              width: MediaQuery.of(context).size.width > 800 ? 500 : MediaQuery.of(context).size.width * 0.8,
+              height: double.infinity,
+              padding: const EdgeInsets.all(32),
+              child: StatefulBuilder(
+                builder: (ctx, setModalState) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Review Submission', style: Theme.of(context).textTheme.headlineSmall),
+                        IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                      ],
+                    ),
+                    const Divider(height: 32),
+                    Text('Student ID: ${submission.studentId}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 16),
+                    const Text('Links:', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                    const SizedBox(height: 8),
+                    _LinkButton(label: 'GitHub Repository', url: submission.githubUrl, icon: Icons.code),
+                    if (submission.liveDemoUrl != null) ...[
+                      const SizedBox(height: 8),
+                      _LinkButton(label: 'Live Demo', url: submission.liveDemoUrl!, icon: Icons.launch),
+                    ],
+                    const SizedBox(height: 32),
+                    const Text('Grading:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        _StatusOption(
+                          status: SubmissionStatus.passed,
+                          current: selectedStatus,
+                          onSelected: (s) => setModalState(() => selectedStatus = s),
+                        ),
+                        const SizedBox(width: 12),
+                        _StatusOption(
+                          status: SubmissionStatus.failed,
+                          current: selectedStatus,
+                          onSelected: (s) => setModalState(() => selectedStatus = s),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    const Text('Instructor Feedback:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: feedbackCtrl,
+                        decoration: const InputDecoration(
+                          hintText: 'Great job! Here are some tips...',
+                          border: OutlineInputBorder(),
+                        ),
+                        maxLines: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: FilledButton(
+                        onPressed: () async {
+                          await ref.read(submissionsControllerProvider).gradeSubmission(
+                            assignmentId: assignmentId,
+                            submissionId: submission.id,
+                            status: selectedStatus,
+                            feedback: feedbackCtrl.text,
+                          );
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Grade saved successfully')),
+                          );
+                        },
+                        child: const Text('Save Grade'),
+                      ),
+                    ),
+                  ],
                 ),
-                maxLines: 5,
               ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: FilledButton(
-                  onPressed: () async {
-                    await ref.read(submissionsControllerProvider).gradeSubmission(
-                      assignmentId: assignmentId,
-                      submissionId: submission.id,
-                      status: selectedStatus,
-                      feedback: feedbackCtrl.text,
-                    );
-                    Navigator.pop(ctx);
-                  },
-                  child: const Text('Save Grade'),
-                ),
-              ),
-              const SizedBox(height: 24),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
+      transitionBuilder: (ctx, anim1, anim2, child) {
+        return SlideTransition(
+          position: Tween(begin: const Offset(1, 0), end: const Offset(0, 0)).animate(anim1),
+          child: child,
+        );
+      },
     );
   }
 }
 
-class _ReviewRow extends StatelessWidget {
+class _ReviewCard extends StatelessWidget {
   final String studentId;
   final Submission? submission;
   final VoidCallback onGrade;
 
-  const _ReviewRow({
+  const _ReviewCard({
     required this.studentId,
     required this.submission,
     required this.onGrade,
@@ -492,36 +541,93 @@ class _ReviewRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasSubmission = submission != null;
 
-    return ListTile(
-      leading: const CircleAvatar(child: Icon(Icons.person_outline)),
-      title: Text('Student: $studentId'),
-      subtitle: hasSubmission 
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                InkWell(
-                  onTap: () => launchUrl(Uri.parse(submission!.githubUrl)),
-                  child: Text(submission!.githubUrl, style: const TextStyle(color: Colors.blue, decoration: TextDecoration.underline, fontSize: 12)),
-                ),
-                if (submission!.liveDemoUrl != null)
-                  InkWell(
-                    onTap: () => launchUrl(Uri.parse(submission!.liveDemoUrl!)),
-                    child: Text(submission!.liveDemoUrl!, style: const TextStyle(color: Colors.blue, decoration: TextDecoration.underline, fontSize: 12)),
+                const CircleAvatar(radius: 16, child: Icon(Icons.person_outline, size: 20)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Student $studentId',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
+                ),
+                if (hasSubmission) _StatusBadge(status: submission!.status),
               ],
-            )
-          : const Text('No submission yet', style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (hasSubmission) _StatusBadge(status: submission!.status),
-          const SizedBox(width: 16),
-          IconButton(
-            icon: const Icon(Icons.rate_review_outlined),
-            onPressed: hasSubmission ? onGrade : null,
-            color: Theme.of(context).primaryColor,
-          ),
-        ],
+            ),
+            const Divider(height: 24),
+            if (hasSubmission) ...[
+              const Text('GitHub:', style: TextStyle(color: Colors.grey, fontSize: 10)),
+              Text(
+                submission!.githubUrl.split('/').last,
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const Spacer(),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: onGrade,
+                  icon: const Icon(Icons.rate_review, size: 16),
+                  label: const Text('Review'),
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ),
+            ] else ...[
+              const Spacer(),
+              const Center(
+                child: Text(
+                  'No submission yet',
+                  style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic, fontSize: 12),
+                ),
+              ),
+              const Spacer(),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LinkButton extends StatelessWidget {
+  final String label;
+  final String url;
+  final IconData icon;
+  const _LinkButton({required this.label, required this.url, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => launchUrl(Uri.parse(url)),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.blue.shade100),
+          borderRadius: BorderRadius.circular(8),
+          color: Colors.blue.shade50.withOpacity(0.3),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: Colors.blue),
+            const SizedBox(width: 8),
+            Expanded(child: Text(label, style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold))),
+            const Icon(Icons.arrow_forward_ios, size: 12, color: Colors.blue),
+          ],
+        ),
       ),
     );
   }

@@ -1,0 +1,77 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Function to check if user is an instructor (assuming role is in users collection)
+    function isInstructor() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'instructor';
+    }
+
+    // Function to check if student is enrolled in a cohort
+    function isEnrolled(cohortId) {
+      return exists(/databases/$(database)/documents/enrollments/$(request.auth.uid + '_' + cohortId));
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if request.auth.uid == userId;
+    }
+
+    // FCM Tokens
+    match /user_tokens/{userId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Cohorts collection
+    match /cohorts/{cohortId} {
+      allow read: if isAuthenticated(); // Everyone can see cohorts (to join)
+      allow write: if isInstructor();
+    }
+
+    // Invites (TTL Tokens)
+    match /invites/{inviteId} {
+      allow read: if isAuthenticated();
+      allow write: if isInstructor();
+    }
+
+    // Weeks and Assignments (Curriculum)
+    match /weeks/{weekId} {
+      allow read: if isAuthenticated(); // Simpler rule: any logged in user can read weeks
+      allow write: if isInstructor();
+    }
+    
+    match /assignments/{assignmentId} {
+      allow read: if isAuthenticated();
+      allow write: if isInstructor();
+    }
+
+    // Submissions
+    match /submissions/{submissionId} {
+      // Students can only read/write their own submissions
+      allow read, write: if isAuthenticated() && (
+        request.auth.uid == resource.data.studentId || 
+        request.auth.uid == request.resource.data.studentId ||
+        isInstructor()
+      );
+      
+      // Instructors can update status and feedback
+      allow update: if isInstructor();
+    }
+
+    // Enrollments
+    match /enrollments/{enrollmentId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.studentId || 
+        isInstructor()
+      );
+      allow write: if isAuthenticated(); // Students can enroll themselves via token
+    }
+  }
+}

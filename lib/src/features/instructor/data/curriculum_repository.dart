@@ -1,52 +1,71 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/week.dart';
 import '../domain/assignment.dart';
 
 class CurriculumRepository {
-  final List<Week> _weeks = [];
-  final List<Assignment> _assignments = [];
+  final FirebaseFirestore _firestore;
+  CurriculumRepository(this._firestore);
 
   Future<List<Week>> getWeeksForCohort(String cohortId) async {
-    await Future.delayed(const Duration(milliseconds: 300));
-    final cohortWeeks = _weeks.where((w) => w.cohortId == cohortId).toList();
-    cohortWeeks.sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
-    return cohortWeeks;
+    final snapshot = await _firestore
+        .collection('weeks')
+        .where('cohortId', isEqualTo: cohortId)
+        .orderBy('orderIndex')
+        .get();
+    
+    return snapshot.docs
+        .map((doc) => Week.fromMap(doc.data(), doc.id))
+        .toList();
   }
 
   Future<List<Assignment>> getAssignmentsForWeek(String weekId) async {
-    await Future.delayed(const Duration(milliseconds: 300));
-    return _assignments.where((a) => a.weekId == weekId).toList();
+    final snapshot = await _firestore
+        .collection('assignments')
+        .where('weekId', isEqualTo: weekId)
+        .get();
+    
+    return snapshot.docs
+        .map((doc) => Assignment.fromMap(doc.data(), doc.id))
+        .toList();
   }
 
   Future<Week> addWeek(String cohortId, String title) async {
-    await Future.delayed(const Duration(milliseconds: 300));
     final existingWeeks = await getWeeksForCohort(cohortId);
     final nextOrder = existingWeeks.isEmpty ? 1 : existingWeeks.last.orderIndex + 1;
     
-    final newWeek = Week(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+    final docRef = await _firestore.collection('weeks').add({
+      'cohortId': cohortId,
+      'title': title,
+      'orderIndex': nextOrder,
+    });
+    
+    return Week(
+      id: docRef.id,
       cohortId: cohortId,
       title: title,
       orderIndex: nextOrder,
     );
-    _weeks.add(newWeek);
-    return newWeek;
   }
 
   Future<Assignment> addAssignment(String weekId, String title, String descriptionText, DateTime dueDate) async {
-    await Future.delayed(const Duration(milliseconds: 300));
-    final newAssignment = Assignment(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+    final docRef = await _firestore.collection('assignments').add({
+      'weekId': weekId,
+      'title': title,
+      'descriptionText': descriptionText,
+      'dueDate': dueDate.toIso8601String(),
+    });
+    
+    return Assignment(
+      id: docRef.id,
       weekId: weekId,
       title: title,
       descriptionText: descriptionText,
       dueDate: dueDate,
     );
-    _assignments.add(newAssignment);
-    return newAssignment;
   }
 }
 
 final curriculumRepositoryProvider = Provider<CurriculumRepository>((ref) {
-  return CurriculumRepository();
+  return CurriculumRepository(FirebaseFirestore.instance);
 });
