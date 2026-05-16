@@ -3,7 +3,7 @@ class Cohort {
   final String name;
   final String description;
   final String instructorId;
-  final String inviteToken;
+  final String classCode;
   final DateTime createdAt;
 
   const Cohort({
@@ -11,7 +11,7 @@ class Cohort {
     required this.name,
     required this.description,
     required this.instructorId,
-    required this.inviteToken,
+    required this.classCode,
     required this.createdAt,
   });
 
@@ -24,7 +24,7 @@ class Cohort {
       name: name ?? this.name,
       description: description ?? this.description,
       instructorId: instructorId,
-      inviteToken: inviteToken,
+      classCode: classCode,
       createdAt: createdAt,
     );
   }
@@ -35,8 +35,17 @@ class Cohort {
       name: map['name'] as String,
       description: map['description'] as String,
       instructorId: map['instructorId'] as String,
-      inviteToken: map['inviteToken'] as String,
+      classCode: map['classCode'] as String? ?? '',
       createdAt: (map['createdAt'] as dynamic)?.toDate() ?? DateTime.now(),
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Cohort && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }
+

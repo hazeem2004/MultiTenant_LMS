@@ -28,14 +28,6 @@ class StudentDashboard extends ConsumerWidget {
               selectedCohort: selectedCohort,
             ),
           IconButton(
-            tooltip: 'Join New Cohort',
-            icon: const Icon(Icons.add_circle_outline),
-            onPressed: () => showDialog(
-              context: context,
-              builder: (context) => const JoinCohortDialog(),
-            ),
-          ),
-          IconButton(
             tooltip: 'Logout',
             icon: const Icon(Icons.logout),
             onPressed: () {
@@ -44,6 +36,14 @@ class StudentDashboard extends ConsumerWidget {
           ),
           const SizedBox(width: 8),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => showDialog(
+          context: context,
+          builder: (context) => const JoinCohortDialog(),
+        ),
+        label: const Text('Join a Class'),
+        icon: const Icon(Icons.add),
       ),
       body: cohortsAsync.when(
         data: (cohorts) {
@@ -118,7 +118,7 @@ class _EmptyStateView extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             const Text(
-              'You are not enrolled in any bootcamps yet. Click the + icon to join a cohort with a token.',
+              'You are not enrolled in any bootcamps yet. Click the button below to join a class with a code.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 16),
             ),
@@ -129,7 +129,7 @@ class _EmptyStateView extends StatelessWidget {
                 builder: (context) => const JoinCohortDialog(),
               ),
               icon: const Icon(Icons.add),
-              label: const Text('Join Your First Cohort'),
+              label: const Text('Join Your First Class'),
             ),
           ],
         ),
