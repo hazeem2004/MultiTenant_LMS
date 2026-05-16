@@ -10,32 +10,32 @@ class JoinCohortDialog extends ConsumerStatefulWidget {
 }
 
 class _JoinCohortDialogState extends ConsumerState<JoinCohortDialog> {
-  final _tokenController = TextEditingController();
+  final _codeController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
 
   @override
   void dispose() {
-    _tokenController.dispose();
+    _codeController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
-    final token = _tokenController.text.trim();
-    if (token.isEmpty) return;
+    final code = _codeController.text.trim();
+    if (code.isEmpty) return;
 
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
-    final error = await ref.read(studentCohortsProvider.notifier).joinCohort(token);
+    final error = await ref.read(studentCohortsProvider.notifier).joinCohort(code);
 
     if (mounted) {
       if (error == null) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Successfully joined the cohort!')),
+          const SnackBar(content: Text('Successfully joined the class!')),
         );
       } else {
         setState(() {
@@ -49,16 +49,16 @@ class _JoinCohortDialogState extends ConsumerState<JoinCohortDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Join New Cohort'),
+      title: const Text('Join a Class'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('Enter the invitation token provided by your instructor.'),
+          const Text('Enter the 6-character Class Code shared by your instructor.'),
           const SizedBox(height: 16),
           TextField(
-            controller: _tokenController,
+            controller: _codeController,
             decoration: InputDecoration(
-              labelText: 'Invitation Token',
+              labelText: 'Class Code',
               hintText: 'e.g. AB12CD',
               border: const OutlineInputBorder(),
               errorText: _errorMessage,

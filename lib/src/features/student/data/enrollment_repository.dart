@@ -33,7 +33,7 @@ class EnrollmentRepository {
     final docRef = await _enrollmentsRef.add({
       'cohortId': cohortId,
       'studentId': studentId,
-      'status': 'active',
+      'status': 'pending',
       'enrolledAt': FieldValue.serverTimestamp(),
     });
 
@@ -41,7 +41,7 @@ class EnrollmentRepository {
       id: docRef.id,
       cohortId: cohortId,
       studentId: studentId,
-      status: 'active',
+      status: 'pending',
     );
   }
 

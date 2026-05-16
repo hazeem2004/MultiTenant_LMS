@@ -32,15 +32,15 @@ class StudentCohortsController extends AsyncNotifier<List<Cohort>> {
     return cohorts;
   }
 
-  Future<String?> joinCohort(String token) async {
+  Future<String?> joinCohort(String code) async {
     final user = ref.read(authControllerProvider).value;
-    if (user == null) return 'You must be logged in to join a cohort.';
+    if (user == null) return 'You must be logged in to join a class.';
 
     final cohortRepo = ref.read(cohortRepositoryProvider);
     final enrollmentRepo = ref.read(enrollmentRepositoryProvider);
 
-    final cohort = await cohortRepo.getCohortByToken(token);
-    if (cohort == null) return 'Invalid token. Please check and try again.';
+    final cohort = await cohortRepo.getCohortByClassCode(code);
+    if (cohort == null) return 'Invalid class code. Please check and try again.';
 
     await enrollmentRepo.enrollStudent(user.uid, cohort.id);
     

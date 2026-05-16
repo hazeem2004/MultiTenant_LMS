@@ -1,38 +1,49 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/app_user.dart';
 import '../data/auth_repository.dart';
 
-class AuthController extends Notifier<AsyncValue<AppUser?>> {
+class AuthController extends StreamNotifier<AppUser?> {
   @override
-  AsyncValue<AppUser?> build() {
-    final repo = ref.watch(authRepositoryProvider);
-    
-    repo.authStateChanges().listen((user) {
-      state = AsyncData(user);
-    }, onError: (e) {
-      state = AsyncError(e, StackTrace.current);
-    });
-
-    return const AsyncLoading();
+  Stream<AppUser?> build() {
+    return ref.watch(authRepositoryProvider).authStateChanges();
   }
 
-  Future<void> signInWithGitHub() async {
+  Future<void> signInWithEmailAndPassword(String email, String password) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       final repo = ref.read(authRepositoryProvider);
-      return repo.signInWithGitHub();
+      return await repo.signInWithEmailAndPassword(email, password);
+    });
+  }
+
+  Future<void> registerWithEmailAndPassword({
+    required String email,
+    required String password,
+    required String name,
+    required String role,
+  }) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(authRepositoryProvider);
+      return await repo.registerWithEmailAndPassword(
+        email: email,
+        password: password,
+        name: name,
+        role: role,
+      );
     });
   }
 
   Future<void> signOut() async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
-      ref.read(authRepositoryProvider).signOut();
+      await ref.read(authRepositoryProvider).signOut();
       return null;
     });
   }
 }
 
-final authControllerProvider = NotifierProvider<AuthController, AsyncValue<AppUser?>>(() {
+final authControllerProvider = StreamNotifierProvider<AuthController, AppUser?>(() {
   return AuthController();
 });
