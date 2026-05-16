@@ -80,6 +80,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
 
                   TextField(
+                    key: const Key('emailField'),
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     decoration: InputDecoration(
@@ -91,6 +92,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   const SizedBox(height: 16),
                   
                   TextField(
+                    key: const Key('passwordField'),
                     controller: _passwordController,
                     obscureText: true,
                     decoration: InputDecoration(
@@ -102,6 +104,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   const SizedBox(height: 24),
 
                   FilledButton(
+                    key: const Key('loginButton'),
                     onPressed: isLoading ? null : _login,
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.all(16.0),

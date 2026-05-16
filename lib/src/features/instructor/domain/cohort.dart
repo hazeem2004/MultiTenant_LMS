@@ -32,12 +32,23 @@ class Cohort {
   factory Cohort.fromMap(String id, Map<String, dynamic> map) {
     return Cohort(
       id: id,
-      name: map['name'] as String,
-      description: map['description'] as String,
-      instructorId: map['instructorId'] as String,
-      classCode: map['classCode'] as String? ?? '',
-      createdAt: (map['createdAt'] as dynamic)?.toDate() ?? DateTime.now(),
+      name: map['name']?.toString() ?? 'Unnamed Cohort',
+      description: map['description']?.toString() ?? '',
+      instructorId: map['instructorId']?.toString() ?? '',
+      classCode: map['classCode']?.toString() ?? '',
+      createdAt: _parseDate(map['createdAt']),
     );
+  }
+
+  static DateTime _parseDate(dynamic value) {
+    if (value == null) return DateTime.now();
+    try {
+      if (value is DateTime) return value;
+      if (value is String) return DateTime.tryParse(value) ?? DateTime.now();
+      return (value as dynamic).toDate();
+    } catch (_) {
+      return DateTime.now();
+    }
   }
 
   @override

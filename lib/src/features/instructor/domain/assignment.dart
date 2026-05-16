@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Assignment {
   final String id;
   final String weekId;
@@ -28,12 +30,19 @@ class Assignment {
   factory Assignment.fromMap(Map<String, dynamic> map, String id) {
     return Assignment(
       id: id,
-      weekId: map['weekId'] as String,
-      title: map['title'] as String,
-      descriptionText: map['descriptionText'] as String,
-      dueDate: DateTime.parse(map['dueDate'] as String),
+      weekId: map['weekId']?.toString() ?? '',
+      title: map['title']?.toString() ?? 'Untitled Assignment',
+      descriptionText: map['descriptionText']?.toString() ?? '',
+      dueDate: _parseDate(map['dueDate']),
       templateUrls: List<String>.from(map['templateUrls'] ?? []),
     );
+  }
+
+  static DateTime _parseDate(dynamic value) {
+    if (value == null) return DateTime.now();
+    if (value is Timestamp) return value.toDate();
+    if (value is String) return DateTime.tryParse(value) ?? DateTime.now();
+    return DateTime.now();
   }
 
   Assignment copyWith({

@@ -27,11 +27,18 @@ class Quiz {
   factory Quiz.fromMap(Map<String, dynamic> map, String id) {
     return Quiz(
       id: id,
-      title: map['title'] ?? '',
-      description: map['description'] ?? '',
-      dueDate: DateTime.parse(map['dueDate']),
+      title: map['title']?.toString() ?? '',
+      description: map['description']?.toString() ?? '',
+      dueDate: _parseDate(map['dueDate']),
       questions: List<Map<String, dynamic>>.from(map['questions'] ?? []),
     );
+  }
+
+  static DateTime _parseDate(dynamic value) {
+    if (value == null) return DateTime.now();
+    if (value is Timestamp) return value.toDate();
+    if (value is String) return DateTime.tryParse(value) ?? DateTime.now();
+    return DateTime.now();
   }
 }
 
@@ -59,9 +66,16 @@ class LectureNote {
   factory LectureNote.fromMap(Map<String, dynamic> map, String id) {
     return LectureNote(
       id: id,
-      title: map['title'] ?? '',
-      contentMarkdown: map['contentMarkdown'] ?? '',
+      title: map['title']?.toString() ?? '',
+      contentMarkdown: map['contentMarkdown']?.toString() ?? '',
       pdfUrls: List<String>.from(map['pdfUrls'] ?? []),
     );
   }
+}
+
+class AttendanceRecord {
+  final String date;
+  final String status; // 'present', 'absent', 'late'
+
+  AttendanceRecord({required this.date, required this.status});
 }

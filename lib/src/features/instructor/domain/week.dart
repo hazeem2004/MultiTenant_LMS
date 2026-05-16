@@ -22,9 +22,9 @@ class Week {
   factory Week.fromMap(Map<String, dynamic> map, String id) {
     return Week(
       id: id,
-      cohortId: map['cohortId'] as String,
-      title: map['title'] as String,
-      orderIndex: map['orderIndex'] as int,
+      cohortId: map['cohortId']?.toString() ?? '',
+      title: map['title']?.toString() ?? 'Unnamed Week',
+      orderIndex: map['orderIndex'] is int ? map['orderIndex'] as int : 0,
     );
   }
 

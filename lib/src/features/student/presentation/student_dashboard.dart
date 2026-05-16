@@ -11,6 +11,9 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart' as fp;
 import 'package:fl_chart/fl_chart.dart';
+import '../../auth/data/notification_repository.dart';
+import '../../instructor/domain/curriculum_content.dart';
+import 'student_attendance_screen.dart';
 import 'join_cohort_dialog.dart';
 
 class StudentDashboard extends ConsumerStatefulWidget {
@@ -28,6 +31,10 @@ class _StudentDashboardState extends ConsumerState<StudentDashboard> {
     final cohortsAsync = ref.watch(studentCohortsProvider);
     final selectedCohort = ref.watch(selectedCohortProvider);
 
+    final user = ref.watch(authControllerProvider).value;
+    final notificationsAsync = ref.watch(notificationsProvider(user?.uid ?? ''));
+    final unreadCount = notificationsAsync.value?.where((n) => !n.isRead).length ?? 0;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(_currentIndex == 0 ? 'My Curriculum' : 'Performance Tracking'),
@@ -38,15 +45,60 @@ class _StudentDashboardState extends ConsumerState<StudentDashboard> {
               cohorts: cohortsAsync.value!,
               selectedCohort: selectedCohort,
             ),
-          IconButton(
-            tooltip: 'Logout',
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              ref.read(authControllerProvider.notifier).signOut();
-            },
+          Stack(
+            children: [
+              IconButton(
+                tooltip: 'Notifications',
+                icon: const Icon(Icons.notifications_none),
+                onPressed: () => _showNotificationsOverlay(context, ref, user?.uid ?? ''),
+              ),
+              if (unreadCount > 0)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(10)),
+                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                    child: Text('$unreadCount', style: const TextStyle(color: Colors.white, fontSize: 10), textAlign: TextAlign.center),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(width: 8),
         ],
+      ),
+      drawer: Drawer(
+        child: Column(
+          children: [
+            UserAccountsDrawerHeader(
+              accountName: Text(user?.email.split('@')[0] ?? 'Student'),
+              accountEmail: Text(user?.email ?? ''),
+              currentAccountPicture: const CircleAvatar(child: Icon(Icons.person)),
+              decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary),
+            ),
+            ListTile(
+              leading: const Icon(Icons.dashboard),
+              title: const Text('My Courses'),
+              onTap: () => Navigator.pop(context),
+            ),
+            ListTile(
+              leading: const Icon(Icons.how_to_reg),
+              title: const Text('Attendance'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const StudentAttendanceScreen()));
+              },
+            ),
+            const Spacer(),
+            ListTile(
+              leading: const Icon(Icons.logout),
+              title: const Text('Logout'),
+              onTap: () => ref.read(authControllerProvider.notifier).signOut(),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
       ),
       floatingActionButton: _currentIndex == 0 ? FloatingActionButton.extended(
         onPressed: () => showDialog(
@@ -79,6 +131,73 @@ class _StudentDashboardState extends ConsumerState<StudentDashboard> {
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, st) => Center(child: Text('Error: $e')),
+      ),
+    );
+  }
+
+  void _showNotificationsOverlay(BuildContext context, WidgetRef ref, String userId) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (context, scrollController) => Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Notifications', style: Theme.of(context).textTheme.headlineSmall),
+                  TextButton(
+                    onPressed: () {
+                      final notifs = ref.read(notificationsProvider(userId)).value ?? [];
+                      for (var n in notifs) {
+                        if (!n.isRead) ref.read(notificationRepositoryProvider).markAsRead(userId, n.id);
+                      }
+                      Navigator.pop(ctx);
+                    },
+                    child: const Text('Mark all as read'),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: Consumer(builder: (context, ref, _) {
+                final notifsAsync = ref.watch(notificationsProvider(userId));
+                return notifsAsync.when(
+                  data: (notifs) {
+                    if (notifs.isEmpty) return const Center(child: Text('No notifications yet.'));
+                    return ListView.builder(
+                      controller: scrollController,
+                      itemCount: notifs.length,
+                      itemBuilder: (context, index) {
+                        final n = notifs[index];
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: n.isRead ? Colors.grey.shade200 : Theme.of(context).colorScheme.primaryContainer,
+                            child: Icon(Icons.notifications, color: n.isRead ? Colors.grey : Theme.of(context).colorScheme.primary),
+                          ),
+                          title: Text(n.title, style: TextStyle(fontWeight: n.isRead ? FontWeight.normal : FontWeight.bold)),
+                          subtitle: Text(n.body),
+                          trailing: Text(n.timestamp.toString().split(' ')[0], style: const TextStyle(fontSize: 10)),
+                          onTap: () {
+                            if (!n.isRead) ref.read(notificationRepositoryProvider).markAsRead(userId, n.id);
+                          },
+                        );
+                      },
+                    );
+                  },
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (e, __) => Center(child: Text('Error: $e')),
+                );
+              }),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -210,31 +329,54 @@ class _CohortCurriculumView extends ConsumerWidget {
                           child: Text('${week.orderIndex}', style: TextStyle(color: Theme.of(context).colorScheme.onSecondaryContainer)),
                         ),
                         title: Text(week.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('${assignments.length} assignments'),
-                        children: assignments.isEmpty 
-                          ? [const Padding(padding: EdgeInsets.all(16), child: Text('No assignments posted for this week.'))]
-                          : assignments.map((a) {
+                        subtitle: const Text('View Lectures, Assignments & Quizzes'),
+                        children: [
+                          _ContentGroupHeader(icon: Icons.menu_book, title: 'Lectures', color: Colors.green),
+                          if (curriculum.lectureNotesByWeek[week.id]?.isEmpty ?? true)
+                            const _NoContentPlaceholder(text: 'No lectures yet.')
+                          else
+                            ...(curriculum.lectureNotesByWeek[week.id] ?? []).map((n) => ListTile(
+                              leading: const Icon(Icons.description, size: 20, color: Colors.green),
+                              title: Text(n.title),
+                              onTap: () => _showLectureNoteViewer(context, n),
+                            )),
+                          
+                          _ContentGroupHeader(icon: Icons.assignment, title: 'Assignments', color: Colors.blue),
+                          if (assignments.isEmpty)
+                            const _NoContentPlaceholder(text: 'No assignments yet.')
+                          else
+                            ...assignments.map((a) {
                               final submissionAsync = ref.watch(studentSubmissionProvider((studentId: user?.uid ?? '', assignmentId: a.id)));
-                              
                               return ListTile(
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                                leading: const Icon(Icons.assignment_outlined),
-                                title: Text(a.title, style: const TextStyle(fontWeight: FontWeight.w500)),
-                                subtitle: Wrap(
-                                  spacing: 12,
+                                leading: const Icon(Icons.upload_file, size: 20, color: Colors.blue),
+                                title: Text(a.title),
+                                subtitle: Row(
                                   children: [
                                     Text('Due: ${a.dueDate.toLocal().toString().split(' ')[0]}'),
+                                    const SizedBox(width: 8),
                                     submissionAsync.when(
                                       data: (sub) => _StatusBadge(status: sub?.status ?? SubmissionStatus.noSubmission),
-                                      loading: () => const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2)),
-                                      error: (_, __) => const Icon(Icons.error, size: 12, color: Colors.red),
+                                      loading: () => const SizedBox.shrink(),
+                                      error: (_, __) => const SizedBox.shrink(),
                                     ),
                                   ],
                                 ),
-                                trailing: const Icon(Icons.chevron_right),
                                 onTap: () => _showStudentAssignmentDetails(context, ref, a.id, a.title, a.descriptionText),
                               );
-                            }).toList(),
+                            }),
+
+                          _ContentGroupHeader(icon: Icons.timer, title: 'Quizzes', color: Colors.orange),
+                          if (curriculum.quizzesByWeek[week.id]?.isEmpty ?? true)
+                            const _NoContentPlaceholder(text: 'No quizzes yet.')
+                          else
+                            ...(curriculum.quizzesByWeek[week.id] ?? []).map((q) => ListTile(
+                              leading: const Icon(Icons.quiz, size: 20, color: Colors.orange),
+                              title: Text(q.title),
+                              subtitle: Text('Due: ${q.dueDate.toLocal().toString().split(' ')[0]}'),
+                              onTap: () => _showQuizPlaceholder(context, q),
+                            )),
+                          const SizedBox(height: 16),
+                        ],
                       ),
                     ),
                   );
@@ -326,6 +468,8 @@ class _CohortCurriculumView extends ConsumerWidget {
     final user = ref.read(authControllerProvider).value;
     List<fp.PlatformFile> selectedFiles = [];
 
+    final githubCtrl = TextEditingController();
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -344,8 +488,20 @@ class _CohortCurriculumView extends ConsumerWidget {
             children: [
               Text('Submit Assignment', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              const Text('Please upload your project files (PDF, ZIP, or DOCX).', style: TextStyle(color: Colors.grey)),
+              const Text('Please upload your project files or provide a GitHub link.', style: TextStyle(color: Colors.grey)),
               const SizedBox(height: 24),
+              
+              TextField(
+                key: const Key('githubUrlField'),
+                controller: githubCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'GitHub Repository URL',
+                  hintText: 'https://github.com/username/repo',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.link),
+                ),
+              ),
+              const SizedBox(height: 16),
               
               OutlinedButton.icon(
                 onPressed: () async {
@@ -393,7 +549,8 @@ class _CohortCurriculumView extends ConsumerWidget {
                 width: double.infinity,
                 height: 56,
                 child: FilledButton(
-                  onPressed: selectedFiles.isEmpty ? null : () async {
+                  key: const Key('submitWorkButton'),
+                  onPressed: () async {
                     final filesData = selectedFiles.map((f) => {
                       'name': f.name,
                       'bytes': f.bytes ?? Uint8List(0),
@@ -402,7 +559,7 @@ class _CohortCurriculumView extends ConsumerWidget {
                     await ref.read(submissionsControllerProvider).submitAssignment(
                       studentId: user?.uid ?? '',
                       assignmentId: assignmentId,
-                      githubUrl: 'Uploaded Files', // Placeholder since we're using files now
+                      githubUrl: githubCtrl.text.isNotEmpty ? githubCtrl.text : 'Uploaded Files',
                       files: filesData,
                     );
                     
@@ -443,7 +600,7 @@ class _StatusBadge extends StatelessWidget {
         break;
       case SubmissionStatus.pendingGrade:
         color = Colors.blue;
-        text = 'Reviewing';
+        text = 'Submitted';
         icon = Icons.access_time;
         break;
       case SubmissionStatus.passed:
@@ -586,4 +743,91 @@ class _GradesTabView extends ConsumerWidget {
       error: (e, __) => Center(child: Text('Error loading curriculum: $e')),
     );
   }
+}
+
+class _ContentGroupHeader extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final Color color;
+  const _ContentGroupHeader({required this.icon, required this.title, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 8),
+          Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 13, letterSpacing: 1)),
+        ],
+      ),
+    );
+  }
+}
+
+class _NoContentPlaceholder extends StatelessWidget {
+  final String text;
+  const _NoContentPlaceholder({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 8),
+      child: Text(text, style: const TextStyle(color: Colors.grey, fontSize: 12, fontStyle: FontStyle.italic)),
+    );
+  }
+}
+
+void _showLectureNoteViewer(BuildContext context, LectureNote note) {
+  showDialog(
+    context: context,
+    builder: (ctx) => Dialog.fullscreen(
+      child: Scaffold(
+        appBar: AppBar(title: Text(note.title)),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              MarkdownBody(data: note.contentMarkdown),
+              if (note.pdfUrls.isNotEmpty) ...[
+                const SizedBox(height: 32),
+                const Text('Attachments:', style: TextStyle(fontWeight: FontWeight.bold)),
+                ...note.pdfUrls.map((url) => ListTile(
+                  leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
+                  title: const Text('Download PDF'),
+                  onTap: () {},
+                )),
+              ],
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+void _showQuizPlaceholder(BuildContext context, Quiz quiz) {
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(quiz.title),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(quiz.description),
+          const SizedBox(height: 16),
+          Text('Due: ${quiz.dueDate.toString().split(' ')[0]}', style: const TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 24),
+          const Center(child: Text('Quiz UI Placeholder\n(Take Quiz Feature coming soon!)', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey))),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+        FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Start Quiz')),
+      ],
+    ),
+  );
 }

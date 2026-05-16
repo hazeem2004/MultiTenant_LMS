@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../domain/curriculum_content.dart';
 
 class AttendanceRepository {
   final FirebaseFirestore _firestore;
@@ -51,8 +52,30 @@ class AttendanceRepository {
       return {};
     });
   }
+  Future<List<AttendanceRecord>> getStudentAttendanceHistory(String cohortId, String studentId) async {
+    final snapshot = await _firestore
+        .collection('cohorts')
+        .doc(cohortId)
+        .collection('attendance')
+        .get();
+    
+    List<AttendanceRecord> records = [];
+    for (var doc in snapshot.docs) {
+      final data = doc.data();
+      final statuses = Map<String, String>.from(data['statuses'] ?? {});
+      if (statuses.containsKey(studentId)) {
+        records.add(AttendanceRecord(date: doc.id, status: statuses[studentId]!));
+      }
+    }
+    records.sort((a, b) => b.date.compareTo(a.date)); // Newest first
+    return records;
+  }
 }
 
 final attendanceRepositoryProvider = Provider<AttendanceRepository>((ref) {
   return AttendanceRepository(FirebaseFirestore.instance);
+});
+
+final studentAttendanceProvider = FutureProvider.family<List<AttendanceRecord>, ({String cohortId, String studentId})>((ref, arg) {
+  return ref.watch(attendanceRepositoryProvider).getStudentAttendanceHistory(arg.cohortId, arg.studentId);
 });
