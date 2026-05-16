@@ -4,6 +4,7 @@ class Assignment {
   final String title;
   final String descriptionText;
   final DateTime dueDate;
+  final List<String> templateUrls;
 
   const Assignment({
     required this.id,
@@ -11,6 +12,7 @@ class Assignment {
     required this.title,
     required this.descriptionText,
     required this.dueDate,
+    this.templateUrls = const [],
   });
 
   Map<String, dynamic> toMap() {
@@ -19,6 +21,7 @@ class Assignment {
       'title': title,
       'descriptionText': descriptionText,
       'dueDate': dueDate.toIso8601String(),
+      'templateUrls': templateUrls,
     };
   }
 
@@ -29,6 +32,7 @@ class Assignment {
       title: map['title'] as String,
       descriptionText: map['descriptionText'] as String,
       dueDate: DateTime.parse(map['dueDate'] as String),
+      templateUrls: List<String>.from(map['templateUrls'] ?? []),
     );
   }
 
@@ -36,6 +40,7 @@ class Assignment {
     String? title,
     String? descriptionText,
     DateTime? dueDate,
+    List<String>? templateUrls,
   }) {
     return Assignment(
       id: id,
@@ -43,6 +48,7 @@ class Assignment {
       title: title ?? this.title,
       descriptionText: descriptionText ?? this.descriptionText,
       dueDate: dueDate ?? this.dueDate,
+      templateUrls: templateUrls ?? this.templateUrls,
     );
   }
 }

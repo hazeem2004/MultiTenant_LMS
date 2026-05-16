@@ -14,8 +14,8 @@ class CohortRepository {
     return snapshot.docs.map((doc) => Cohort.fromMap(doc.id, doc.data())).toList();
   }
 
-  Future<Cohort?> getCohortByToken(String token) async {
-    final snapshot = await _cohortsRef.where('inviteToken', isEqualTo: token).limit(1).get();
+  Future<Cohort?> getCohortByClassCode(String code) async {
+    final snapshot = await _cohortsRef.where('classCode', isEqualTo: code).limit(1).get();
     if (snapshot.docs.isNotEmpty) {
       return Cohort.fromMap(snapshot.docs.first.id, snapshot.docs.first.data());
     }
@@ -31,12 +31,12 @@ class CohortRepository {
   }
 
   Future<Cohort> createCohort(String name, String description, String instructorId) async {
-    final inviteToken = _generateToken();
+    final classCode = _generateCode();
     final docRef = await _cohortsRef.add({
       'name': name,
       'description': description,
       'instructorId': instructorId,
-      'inviteToken': inviteToken,
+      'classCode': classCode,
       'createdAt': FieldValue.serverTimestamp(),
     });
     
@@ -45,7 +45,7 @@ class CohortRepository {
       name: name,
       description: description,
       instructorId: instructorId,
-      inviteToken: inviteToken,
+      classCode: classCode,
       createdAt: DateTime.now(),
     );
   }
@@ -57,38 +57,41 @@ class CohortRepository {
     });
   }
 
+  Future<void> updateInstructor(String cohortId, String newInstructorId) async {
+    await _cohortsRef.doc(cohortId).update({
+      'instructorId': newInstructorId,
+    });
+  }
+
+  Future<String> regenerateClassCode(String cohortId) async {
+    final newCode = _generateCode();
+    await _cohortsRef.doc(cohortId).update({
+      'classCode': newCode,
+    });
+    return newCode;
+  }
+
+  Future<void> updateCodeExpiry(String cohortId, DateTime? expiryDate) async {
+    await _cohortsRef.doc(cohortId).update({
+      'classCodeExpiry': expiryDate != null ? Timestamp.fromDate(expiryDate) : null,
+    });
+  }
+
   Future<void> deleteCohort(String cohortId) async {
     await _cohortsRef.doc(cohortId).delete();
   }
 
-  String _generateToken() {
+  String _generateCode() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     var rnd = Random();
     return String.fromCharCodes(Iterable.generate(6, (_) => chars.codeUnitAt(rnd.nextInt(chars.length))));
   }
 
-  // TTL Token Logic
-  Future<String> generateTTLToken(String cohortId) async {
-    final token = _generateToken();
-    final expiresAt = DateTime.now().add(const Duration(hours: 24));
-    
-    await _firestore.collection('invites').add({
-      'cohortId': cohortId,
-      'token': token,
-      'expiresAt': expiresAt.toUtc().toIso8601String(),
-    });
-    
-    return token;
-  }
-
   Future<List<Cohort>> fetchCohortsByIds(List<String> cohortIds) async {
     if (cohortIds.isEmpty) return [];
     
-    // Firestore 'in' query has a limit of 10 items per batch.
-    // Assuming a student is enrolled in < 10 cohorts, but let's handle chunks if needed.
     final cohorts = <Cohort>[];
     
-    // Split into chunks of 10
     for (var i = 0; i < cohortIds.length; i += 10) {
       final chunk = cohortIds.sublist(i, i + 10 > cohortIds.length ? cohortIds.length : i + 10);
       final snapshot = await _cohortsRef.where(FieldPath.documentId, whereIn: chunk).get();

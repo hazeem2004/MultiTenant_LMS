@@ -14,6 +14,7 @@ class Submission {
   final SubmissionStatus status;
   final String? instructorFeedback;
   final DateTime submittedAt;
+  final List<String> fileUrls;
 
   const Submission({
     required this.id,
@@ -24,6 +25,7 @@ class Submission {
     this.status = SubmissionStatus.pendingGrade,
     this.instructorFeedback,
     required this.submittedAt,
+    this.fileUrls = const [],
   });
 
   Map<String, dynamic> toMap() {
@@ -35,6 +37,7 @@ class Submission {
       'status': status.name,
       'instructorFeedback': instructorFeedback,
       'submittedAt': submittedAt.toIso8601String(),
+      'fileUrls': fileUrls,
     };
   }
 
@@ -48,12 +51,14 @@ class Submission {
       status: SubmissionStatus.values.byName(map['status'] as String),
       instructorFeedback: map['instructorFeedback'] as String?,
       submittedAt: DateTime.parse(map['submittedAt'] as String),
+      fileUrls: List<String>.from(map['fileUrls'] ?? []),
     );
   }
 
   Submission copyWith({
     SubmissionStatus? status,
     String? instructorFeedback,
+    List<String>? fileUrls,
   }) {
     return Submission(
       id: id,
@@ -64,6 +69,7 @@ class Submission {
       status: status ?? this.status,
       instructorFeedback: instructorFeedback ?? this.instructorFeedback,
       submittedAt: submittedAt,
+      fileUrls: fileUrls ?? this.fileUrls,
     );
   }
 }
