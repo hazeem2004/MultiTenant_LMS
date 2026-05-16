@@ -11,9 +11,13 @@ import 'package:url_launcher/url_launcher.dart';
 import '../domain/assignment.dart';
 import '../domain/cohort.dart';
 import '../data/cohort_repository.dart';
+import '../domain/curriculum_content.dart';
+import '../../auth/domain/notification.dart';
+import '../../auth/data/notification_repository.dart';
 import 'package:file_picker/file_picker.dart' as fp;
 import '../data/attendance_repository.dart';
 import 'instructor_analytics_screen.dart';
+import 'overall_attendance_screen.dart';
 
 class CohortDetailScreen extends ConsumerWidget {
   final String cohortId;
@@ -113,23 +117,56 @@ class _SyllabusTabView extends ConsumerWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(week.title, style: Theme.of(context).textTheme.titleLarge),
-                          TextButton.icon(
-                            onPressed: () => _showAddAssignmentDialog(context, ref, cohortId, week.id),
-                            icon: const Icon(Icons.add_task),
-                            label: const Text('Add Assignment'),
+                          Row(
+                            children: [
+                              TextButton.icon(
+                                onPressed: () => _showAddAssignmentDialog(context, ref, cohortId, week.id),
+                                icon: const Icon(Icons.assignment_add),
+                                label: const Text('Assignment'),
+                              ),
+                              TextButton.icon(
+                                onPressed: () => _showAddQuizDialog(context, ref, cohortId, week.id),
+                                icon: const Icon(Icons.quiz),
+                                label: const Text('Quiz'),
+                              ),
+                              TextButton.icon(
+                                onPressed: () => _showAddLectureNoteDialog(context, ref, cohortId, week.id),
+                                icon: const Icon(Icons.description),
+                                label: const Text('Note'),
+                              ),
+                            ],
                           )
                         ],
                       ),
                       const SizedBox(height: 16),
-                      if (assignments.isEmpty)
-                        const Text('No assignments yet.', style: TextStyle(fontStyle: FontStyle.italic)),
+                      if (assignments.isEmpty && (curriculum.quizzesByWeek[week.id]?.isEmpty ?? true) && (curriculum.lectureNotesByWeek[week.id]?.isEmpty ?? true))
+                        const Text('No content yet.', style: TextStyle(fontStyle: FontStyle.italic)),
+                      
+                      // Assignments
                       ...assignments.map((a) => ListTile(
-                        leading: const Icon(Icons.assignment),
+                        leading: const Icon(Icons.assignment, color: Colors.blue),
                         title: Text(a.title),
                         subtitle: Text('Due: ${a.dueDate.toLocal().toString().split(' ')[0]}'),
                         onTap: () => _showAssignmentDetails(context, a),
                         trailing: a.templateUrls.isNotEmpty ? const Icon(Icons.attach_file, size: 16) : null,
-                      ))
+                      )),
+                      
+                      // Quizzes
+                      ...(curriculum.quizzesByWeek[week.id] ?? []).map((q) => ListTile(
+                        leading: const Icon(Icons.quiz, color: Colors.orange),
+                        title: Text(q.title),
+                        subtitle: Text('Due: ${q.dueDate.toLocal().toString().split(' ')[0]}'),
+                        onTap: () {}, // TODO: Show Quiz Details
+                      )),
+                      
+                      // Lecture Notes
+                      ...(curriculum.lectureNotesByWeek[week.id] ?? []).map((n) => ListTile(
+                        leading: const Icon(Icons.description, color: Colors.green),
+                        title: Text(n.title),
+                        subtitle: const Text('Lecture Notes'),
+                        onTap: () {}, // TODO: Show Note Details
+                        trailing: n.pdfUrls.isNotEmpty ? const Icon(Icons.picture_as_pdf, size: 16) : null,
+                      )),
                     ],
                   ),
                 ),
@@ -169,6 +206,7 @@ class _SyllabusTabView extends ConsumerWidget {
   void _showAddAssignmentDialog(BuildContext context, WidgetRef ref, String cohortId, String weekId) {
     final titleCtrl = TextEditingController();
     final descCtrl = TextEditingController();
+    DateTime selectedDeadline = DateTime.now().add(const Duration(days: 7));
     List<fp.PlatformFile> selectedFiles = [];
 
     showDialog(
@@ -176,47 +214,72 @@ class _SyllabusTabView extends ConsumerWidget {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) => AlertDialog(
           title: const Text('Add Assignment'),
-          content: SizedBox(
-            width: 500,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'Assignment Title')),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: descCtrl,
-                  decoration: const InputDecoration(labelText: 'Markdown Instructions'),
-                  maxLines: 5,
-                  keyboardType: TextInputType.multiline,
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Templates: ${selectedFiles.length} attached', style: const TextStyle(fontSize: 12)),
-                    TextButton.icon(
-                      onPressed: () async {
-                        final result = await fp.FilePicker.pickFiles(allowMultiple: true);
-                        if (result != null) {
-                          setModalState(() => selectedFiles = result.files);
-                        }
-                      },
-                      icon: const Icon(Icons.attach_file),
-                      label: const Text('Attach Files'),
-                    ),
-                  ],
-                ),
-                if (selectedFiles.isNotEmpty)
-                  SizedBox(
-                    height: 100,
-                    child: ListView(
-                      children: selectedFiles.map((f) => Chip(
-                        label: Text(f.name, style: const TextStyle(fontSize: 10)),
-                        onDeleted: () => setModalState(() => selectedFiles.remove(f)),
-                      )).toList(),
-                    ),
+          content: SingleChildScrollView(
+            child: SizedBox(
+              width: 500,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'Assignment Title', border: OutlineInputBorder())),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: descCtrl,
+                    decoration: const InputDecoration(labelText: 'Markdown Instructions', border: OutlineInputBorder()),
+                    maxLines: 5,
                   ),
-              ],
+                  const SizedBox(height: 16),
+                  ListTile(
+                    title: const Text('Deadline'),
+                    subtitle: Text(selectedDeadline.toString().split('.')[0]),
+                    trailing: const Icon(Icons.calendar_today),
+                    onTap: () async {
+                      final date = await showDatePicker(
+                        context: context,
+                        initialDate: selectedDeadline,
+                        firstDate: DateTime.now(),
+                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                      );
+                      if (date != null) {
+                        final time = await showTimePicker(
+                          context: context,
+                          initialTime: TimeOfDay.fromDateTime(selectedDeadline),
+                        );
+                        if (time != null) {
+                          setModalState(() => selectedDeadline = DateTime(date.year, date.month, date.day, time.hour, time.minute));
+                        }
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Templates: ${selectedFiles.length} attached', style: const TextStyle(fontSize: 12)),
+                      TextButton.icon(
+                        onPressed: () async {
+                          final result = await fp.FilePicker.pickFiles(allowMultiple: true);
+                          if (result != null) {
+                            setModalState(() => selectedFiles = result.files);
+                          }
+                        },
+                        icon: const Icon(Icons.attach_file),
+                        label: const Text('Attach Files'),
+                      ),
+                    ],
+                  ),
+                  if (selectedFiles.isNotEmpty)
+                    SizedBox(
+                      height: 80,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: selectedFiles.map((f) => Chip(
+                          label: Text(f.name, style: const TextStyle(fontSize: 10)),
+                          onDeleted: () => setModalState(() => selectedFiles.remove(f)),
+                        )).toList(),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
           actions: [
@@ -226,17 +289,36 @@ class _SyllabusTabView extends ConsumerWidget {
                 if (titleCtrl.text.isNotEmpty) {
                   final filesData = selectedFiles.map((f) => {
                     'name': f.name,
-                    'bytes': f.bytes ?? Uint8List(0), // Note: on web bytes is available
+                    'bytes': f.bytes ?? Uint8List(0),
                   }).toList();
 
-                  ref.read(curriculumControllerProvider).addAssignment(
+                  await ref.read(curriculumControllerProvider).addAssignment(
                     cohortId: cohortId,
                     weekId: weekId,
                     title: titleCtrl.text,
                     descriptionText: descCtrl.text,
-                    dueDate: DateTime.now().add(const Duration(days: 7)),
+                    dueDate: selectedDeadline,
                     files: filesData,
                   );
+
+                  // Trigger Notifications for all enrolled students
+                  final enrollments = await ref.read(enrollmentsProvider(cohortId).future);
+                  final notifRepo = ref.read(notificationRepositoryProvider);
+                  
+                  for (var enrollment in enrollments) {
+                    await notifRepo.sendNotification(
+                      enrollment.studentId,
+                      AppNotification(
+                        id: '',
+                        title: 'New Assignment: ${titleCtrl.text}',
+                        body: 'A new assignment has been posted in your cohort.',
+                        timestamp: DateTime.now(),
+                        cohortId: cohortId,
+                        routeUrl: '/student/curriculum',
+                      ),
+                    );
+                  }
+
                   Navigator.pop(ctx);
                 }
               },
@@ -244,6 +326,107 @@ class _SyllabusTabView extends ConsumerWidget {
             )
           ],
         ),
+      ),
+    );
+  }
+
+  void _showAddQuizDialog(BuildContext context, WidgetRef ref, String cohortId, String weekId) {
+    final titleCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    DateTime selectedDeadline = DateTime.now().add(const Duration(days: 7));
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => AlertDialog(
+          title: const Text('Add Quiz'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'Quiz Title')),
+              const SizedBox(height: 16),
+              TextField(controller: descCtrl, decoration: const InputDecoration(labelText: 'Description')),
+              const SizedBox(height: 16),
+              ListTile(
+                title: const Text('Deadline'),
+                subtitle: Text(selectedDeadline.toString().split('.')[0]),
+                onTap: () async {
+                  final date = await showDatePicker(context: context, initialDate: selectedDeadline, firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 365)));
+                  if (date != null) {
+                    final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(selectedDeadline));
+                    if (time != null) setModalState(() => selectedDeadline = DateTime(date.year, date.month, date.day, time.hour, time.minute));
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () async {
+                if (titleCtrl.text.isNotEmpty) {
+                  await ref.read(curriculumControllerProvider).addQuiz(
+                    cohortId,
+                    weekId,
+                    Quiz(
+                      id: '',
+                      title: titleCtrl.text,
+                      description: descCtrl.text,
+                      dueDate: selectedDeadline,
+                      questions: [], // Empty for now
+                    ),
+                  );
+                  
+                  // Notify students
+                  final enrollments = await ref.read(enrollmentsProvider(cohortId).future);
+                  for (var e in enrollments) {
+                    await ref.read(notificationRepositoryProvider).sendNotification(e.studentId, AppNotification(
+                      id: '', title: 'New Quiz: ${titleCtrl.text}', body: 'Test your knowledge! A new quiz is available.', timestamp: DateTime.now(), cohortId: cohortId, routeUrl: '/student/curriculum',
+                    ));
+                  }
+                  Navigator.pop(ctx);
+                }
+              },
+              child: const Text('Create'),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddLectureNoteDialog(BuildContext context, WidgetRef ref, String cohortId, String weekId) {
+    final titleCtrl = TextEditingController();
+    final contentCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Add Lecture Note'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'Note Title')),
+            const SizedBox(height: 16),
+            TextField(controller: contentCtrl, decoration: const InputDecoration(labelText: 'Markdown Content'), maxLines: 5),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () async {
+              if (titleCtrl.text.isNotEmpty) {
+                await ref.read(curriculumControllerProvider).addLectureNote(
+                  cohortId,
+                  weekId,
+                  LectureNote(id: '', title: titleCtrl.text, contentMarkdown: contentCtrl.text, pdfUrls: []),
+                );
+                Navigator.pop(ctx);
+              }
+            },
+            child: const Text('Create'),
+          )
+        ],
       ),
     );
   }
@@ -852,6 +1035,15 @@ class _AttendanceTabViewState extends ConsumerState<_AttendanceTabView> {
                   },
                 ),
                 const Spacer(),
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => OverallAttendanceScreen(cohortId: widget.cohortId)),
+                  ),
+                  icon: const Icon(Icons.grid_view),
+                  label: const Text('Overall Matrix'),
+                ),
+                const SizedBox(width: 12),
                 FilledButton.icon(
                   onPressed: () async {
                     await ref.read(attendanceRepositoryProvider).saveAttendance(
