@@ -1,66 +1,79 @@
-# DevCohort LMS (Multi-Tenant Learning Management System)
+# DevCohort LMS 🚀
+### A Powerful, Multi-Tenant Learning Management System
 
-DevCohort is a modern, mobile-first Learning Management System built with **Flutter** and **Firebase**. It is designed for independent coding bootcamps and academies to manage multi-tenant classrooms, curriculum, and student feedback loops with ease.
+![DevCohort LMS Hero](devcohort_lms_hero_1778944224356.png)
 
----
-
-## 🚀 User Workflows
-
-### 👨‍🏫 Instructor (Teacher) Workflow
-The Instructor is the primary content creator and manager of the classroom.
-
-1.  **Onboarding & Login**:
-    *   Sign in securely via **GitHub OAuth**.
-    *   System automatically identifies the user as an `instructor` (or sets default role).
-2.  **Classroom Setup**:
-    *   **Create a Cohort**: Define a new batch (e.g., "Fullstack Web Dev - Winter 2024").
-    *   **Curriculum Building**: Add "Weeks" and "Assignments" to the cohort.
-    *   **Markdown Support**: Write rich assignment descriptions using GitHub-flavored Markdown.
-3.  **Student Enrollment**:
-    *   **Generate Invite Tokens**: Create secure, time-limited TTL (Time-To-Live) tokens for students.
-    *   **Share Links**: Distribute the invite link/token to students for secure self-enrollment.
-4.  **Grading & Feedback**:
-    *   **Review Matrix**: View a grid of all student submissions for each assignment.
-    *   **Interactive Feedback**: Open a submission to view GitHub/Live links and leave comments.
-    *   **Grading**: Assign grades (e.g., "Pass", "Redo", "Excellent") which sync in real-time.
-
-### 👨‍🎓 Student Workflow
-The Student focuses on learning and submission tracking across multiple enrolled cohorts.
-
-1.  **Onboarding & Enrollment**:
-    *   Sign in via **GitHub OAuth**.
-    *   **Join Cohort**: Enter an invite token provided by the instructor to instantly join a classroom.
-    *   **Multi-Cohort Support**: Students can switch between different bootcamps or classes they are enrolled in.
-2.  **Learning & Progress**:
-    *   **Dashboard View**: See the current week's assignments and curriculum progress.
-    *   **Assignment Details**: Read assignment instructions rendered in Markdown.
-3.  **Submission**:
-    *   **Hand-in Work**: Submit assignments by providing GitHub repository URLs and Live Demo links.
-    *   **Submission Status**: Track whether a submission is "Pending", "Reviewed", or needs "Revision".
-4.  **Notifications**:
-    *   Receive real-time push notifications (FCM) when an instructor grades an assignment or leaves feedback.
-
-### 🔑 Admin (Planned)
-The Admin role is designed for institutional management.
-*   **User Management**: Monitor instructor activity and platform-wide enrollment stats.
-*   **Global Settings**: Manage multi-tenant configurations and high-level platform branding.
+DevCohort is a professional-grade Learning Management System built with **Flutter** and **Firebase**. It provides a robust "Teaching Engine" for instructors and a "God Mode" for administrators to manage large-scale coding bootcamps and educational cohorts.
 
 ---
 
-## 🛠 Technical Stack
-*   **Frontend**: Flutter (Web, Android, iOS)
-*   **Backend**: Firebase (Auth, Firestore, Cloud Messaging)
-*   **State Management**: Riverpod (AsyncNotifier, Provider)
-*   **Architecture**: Layered architecture (Presentation, Application, Domain, Data)
-*   **Security**: Firestore Security Rules for data isolation and TTL-based enrollment.
+## ✨ Key Features
+
+### 🛡️ Admin "God Mode"
+*   **Approval System**: Secure registration with a strict Admin Approval flow.
+*   **User Management**: Instant role reassignment and approval toggles via interactive DataTables.
+*   **System Analytics**: Real-time aggregation of active cohorts, students, and instructor distribution.
+*   **Platform Overview**: High-level visualization of system performance using `fl_chart`.
+
+### 👨‍🏫 Instructor "Teaching Engine"
+*   **Curriculum Management**: Build multi-week syllabuses with rich Markdown assignments.
+*   **Assignment Templates**: Upload template files and boilerplate code directly to Firebase Storage.
+*   **Attendance Tracking**: Daily digital roll calls with persistent records in Firestore.
+*   **Performance Analytics**: Visualize student success with average grade bar charts and completion pie charts.
+*   **Cohort Security**: Dynamic join codes with manual regeneration and expiration settings.
+
+### 👨‍🎓 Student Dashboard
+*   **Unified View**: Track assignments, deadlines, and grades across multiple enrolled cohorts.
+*   **Submission Pipeline**: Submit GitHub repositories, live demos, and file attachments.
+*   **Real-time Feedback**: Receive grading updates and instructor comments instantly.
 
 ---
 
-## 🏗 Setup & Installation
-1.  **Clone the Repo**: `git clone ...`
-2.  **Install Dependencies**: `flutter pub get`
-3.  **Firebase Config**: 
-    *   Run `flutterfire configure` to link your Firebase project.
-    *   Enable **GitHub Auth** in the Firebase Console.
-    *   Create a **Firestore Database** in the Firebase Console.
-4.  **Run the App**: `flutter run -d chrome`
+## 🛠 Tech Stack
+*   **Frontend**: Flutter 3.x (Web, Android, iOS)
+*   **State Management**: Riverpod 3.0 (AsyncNotifier Pattern)
+*   **Backend**: Firebase (Auth, Firestore, Storage)
+*   **Analytics**: `fl_chart`
+*   **Styling**: Material 3 with Premium Custom Theming
+
+---
+
+## 🚀 Setup & Installation
+
+### Prerequisites
+*   Flutter SDK installed
+*   Firebase CLI installed
+
+### Steps
+1.  **Clone the Repository**
+    ```powershell
+    git clone https://github.com/hazeem2004/MultiTenant_LMS.git
+    cd MultiTenant_LMS
+    ```
+
+2.  **Install Dependencies**
+    ```powershell
+    flutter pub get
+    ```
+
+3.  **Firebase Configuration**
+    *   Initialize Firebase in the project: `flutterfire configure`
+    *   Enable **Email/Password** Auth in Firebase Console.
+    *   Create a **Firestore** database and **Storage** bucket.
+    *   Apply Firestore Rules (see `firestore.rules` in repo).
+
+4.  **Run the Application**
+    ```powershell
+    flutter run -d chrome
+    ```
+
+---
+
+## 📸 Demo
+*Check out the latest Instructor Dashboard walkthrough:*
+![Analytics Demo](devcohort_lms_hero_1778944224356.png)
+
+---
+
+## 📄 License
+Internal use for DevCohort Academies.
