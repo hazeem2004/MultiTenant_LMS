@@ -25,9 +25,9 @@ class Enrollment {
   factory Enrollment.fromMap(String id, Map<String, dynamic> map) {
     return Enrollment(
       id: id,
-      cohortId: map['cohortId'] as String,
-      studentId: map['studentId'] as String,
-      status: map['status'] as String,
+      cohortId: map['cohortId']?.toString() ?? '',
+      studentId: map['studentId']?.toString() ?? '',
+      status: map['status']?.toString() ?? 'pending',
     );
   }
 }

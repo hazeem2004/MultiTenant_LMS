@@ -33,12 +33,14 @@ class AppNotification {
   factory AppNotification.fromMap(Map<String, dynamic> map, String id) {
     return AppNotification(
       id: id,
-      title: map['title'] ?? '',
-      body: map['body'] ?? '',
-      timestamp: DateTime.parse(map['timestamp']),
+      title: map['title']?.toString() ?? '',
+      body: map['body']?.toString() ?? '',
+      timestamp: map['timestamp'] != null 
+          ? DateTime.tryParse(map['timestamp'].toString()) ?? DateTime.now()
+          : DateTime.now(),
       isRead: map['isRead'] ?? false,
-      cohortId: map['cohortId'],
-      routeUrl: map['routeUrl'],
+      cohortId: map['cohortId']?.toString(),
+      routeUrl: map['routeUrl']?.toString(),
     );
   }
 }

@@ -306,17 +306,19 @@ class _SyllabusTabView extends ConsumerWidget {
                   final notifRepo = ref.read(notificationRepositoryProvider);
                   
                   for (var enrollment in enrollments) {
-                    await notifRepo.sendNotification(
-                      enrollment.studentId,
-                      AppNotification(
-                        id: '',
-                        title: 'New Assignment: ${titleCtrl.text}',
-                        body: 'A new assignment has been posted in your cohort.',
-                        timestamp: DateTime.now(),
-                        cohortId: cohortId,
-                        routeUrl: '/student/curriculum',
-                      ),
-                    );
+                    if (enrollment.studentId.isNotEmpty) {
+                      await notifRepo.sendNotification(
+                        enrollment.studentId,
+                        AppNotification(
+                          id: '',
+                          title: 'New Assignment: ${titleCtrl.text}',
+                          body: 'A new assignment has been posted in your cohort.',
+                          timestamp: DateTime.now(),
+                          cohortId: cohortId,
+                          routeUrl: '/student/curriculum',
+                        ),
+                      );
+                    }
                   }
 
                   Navigator.pop(ctx);
