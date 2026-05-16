@@ -12,27 +12,35 @@ class NotificationService {
   NotificationService(this._ref);
 
   Future<void> init() async {
-    // Request permissions
-    NotificationSettings settings = await _fcm.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+    try {
+      // Request permissions
+      NotificationSettings settings = await _fcm.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
 
-    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      dev.log('User granted permission');
-    } else {
-      dev.log('User declined or has not accepted permission');
+      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+        dev.log('User granted permission');
+      }
+
+      // Get token and save to Firestore
+      String? token = await _fcm.getToken().catchError((e) {
+        dev.log('Error getting FCM token: $e');
+        return null;
+      });
+      
+      if (token != null) {
+        await _saveTokenToDatabase(token);
+      }
+
+      // Listen for token refresh
+      _fcm.onTokenRefresh.listen(_saveTokenToDatabase);
+    } catch (e) {
+      dev.log('Notification initialization failed: $e');
     }
 
-    // Get token and save to Firestore
-    String? token = await _fcm.getToken();
-    if (token != null) {
-      await _saveTokenToDatabase(token);
-    }
-
-    // Listen for token refresh
-    _fcm.onTokenRefresh.listen(_saveTokenToDatabase);
+    // Handle foreground messages
 
     // Handle foreground messages
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
