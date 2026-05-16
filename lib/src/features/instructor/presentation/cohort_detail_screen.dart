@@ -8,7 +8,12 @@ import '../../student/application/submissions_controller.dart';
 import '../../student/domain/submission.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../domain/assignment.dart';
+import '../domain/cohort.dart';
 import '../data/cohort_repository.dart';
+import 'package:file_picker/file_picker.dart' as fp;
+import '../data/attendance_repository.dart';
+import 'instructor_analytics_screen.dart';
 
 class CohortDetailScreen extends ConsumerWidget {
   final String cohortId;
@@ -24,23 +29,39 @@ class CohortDetailScreen extends ConsumerWidget {
         if (cohort == null) return Scaffold(appBar: AppBar(), body: const Center(child: Text('Cohort not found')));
 
         return DefaultTabController(
-          length: 3,
+          length: 5,
           child: Scaffold(
             appBar: AppBar(
               title: Text(cohort.name),
+              actions: [
+                IconButton(
+                  tooltip: 'Analytics',
+                  icon: const Icon(Icons.analytics_outlined),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => InstructorAnalyticsScreen(cohortId: cohort.id)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
               bottom: const TabBar(
+                isScrollable: true,
                 tabs: [
                   Tab(text: 'Syllabus'),
                   Tab(text: 'Students'),
+                  Tab(text: 'Attendance'),
                   Tab(text: 'Review'),
+                  Tab(text: 'Settings'),
                 ],
               ),
             ),
             body: TabBarView(
               children: [
                 _SyllabusTabView(cohortId: cohort.id),
-                _StudentsTabView(cohortId: cohort.id, inviteToken: cohort.inviteToken),
+                _StudentsTabView(cohortId: cohort.id, classCode: cohort.classCode),
+                _AttendanceTabView(cohortId: cohort.id),
                 _ReviewTabView(cohortId: cohort.id),
+                _SettingsTabView(cohort: cohort),
               ],
             ),
           ),
@@ -106,7 +127,8 @@ class _SyllabusTabView extends ConsumerWidget {
                         leading: const Icon(Icons.assignment),
                         title: Text(a.title),
                         subtitle: Text('Due: ${a.dueDate.toLocal().toString().split(' ')[0]}'),
-                        onTap: () => _showAssignmentDetails(context, a.title, a.descriptionText),
+                        onTap: () => _showAssignmentDetails(context, a),
+                        trailing: a.templateUrls.isNotEmpty ? const Icon(Icons.attach_file, size: 16) : null,
                       ))
                     ],
                   ),
@@ -146,50 +168,87 @@ class _SyllabusTabView extends ConsumerWidget {
 
   void _showAddAssignmentDialog(BuildContext context, WidgetRef ref, String cohortId, String weekId) {
     final titleCtrl = TextEditingController();
-    final descCtrl = TextEditingController(); 
+    final descCtrl = TextEditingController();
+    List<fp.PlatformFile> selectedFiles = [];
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Add Assignment'),
-        content: SizedBox(
-          width: 500,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'Assignment Title')),
-              const SizedBox(height: 16),
-              TextField(
-                controller: descCtrl,
-                decoration: const InputDecoration(labelText: 'Markdown Instructions'),
-                maxLines: 10,
-                keyboardType: TextInputType.multiline,
-              ),
-            ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => AlertDialog(
+          title: const Text('Add Assignment'),
+          content: SizedBox(
+            width: 500,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'Assignment Title')),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: descCtrl,
+                  decoration: const InputDecoration(labelText: 'Markdown Instructions'),
+                  maxLines: 5,
+                  keyboardType: TextInputType.multiline,
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Templates: ${selectedFiles.length} attached', style: const TextStyle(fontSize: 12)),
+                    TextButton.icon(
+                      onPressed: () async {
+                        final result = await fp.FilePicker.pickFiles(allowMultiple: true);
+                        if (result != null) {
+                          setModalState(() => selectedFiles = result.files);
+                        }
+                      },
+                      icon: const Icon(Icons.attach_file),
+                      label: const Text('Attach Files'),
+                    ),
+                  ],
+                ),
+                if (selectedFiles.isNotEmpty)
+                  SizedBox(
+                    height: 100,
+                    child: ListView(
+                      children: selectedFiles.map((f) => Chip(
+                        label: Text(f.name, style: const TextStyle(fontSize: 10)),
+                        onDeleted: () => setModalState(() => selectedFiles.remove(f)),
+                      )).toList(),
+                    ),
+                  ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () async {
+                if (titleCtrl.text.isNotEmpty) {
+                  final filesData = selectedFiles.map((f) => {
+                    'name': f.name,
+                    'bytes': f.bytes ?? Uint8List(0), // Note: on web bytes is available
+                  }).toList();
+
+                  ref.read(curriculumControllerProvider).addAssignment(
+                    cohortId: cohortId,
+                    weekId: weekId,
+                    title: titleCtrl.text,
+                    descriptionText: descCtrl.text,
+                    dueDate: DateTime.now().add(const Duration(days: 7)),
+                    files: filesData,
+                  );
+                  Navigator.pop(ctx);
+                }
+              },
+              child: const Text('Create'),
+            )
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () {
-              if (titleCtrl.text.isNotEmpty) {
-                ref.read(curriculumControllerProvider).addAssignment(
-                  cohortId,
-                  weekId, 
-                  titleCtrl.text, 
-                  descCtrl.text, 
-                  DateTime.now().add(const Duration(days: 7)) 
-                );
-                Navigator.pop(ctx);
-              }
-            },
-            child: const Text('Create'),
-          )
-        ],
-      )
+      ),
     );
   }
 
-  void _showAssignmentDetails(BuildContext context, String title, String markdownSource) {
+  void _showAssignmentDetails(BuildContext context, Assignment a) {
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
@@ -203,14 +262,33 @@ class _SyllabusTabView extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(title, style: Theme.of(context).textTheme.headlineSmall),
+                  Text(a.title, style: Theme.of(context).textTheme.headlineSmall),
                   IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx))
                 ],
               ),
               const Divider(),
               Expanded(
-                child: Markdown(data: markdownSource),
+                child: Markdown(data: a.descriptionText),
               ),
+              if (a.templateUrls.isNotEmpty) ...[
+                const Divider(),
+                const Text('Templates:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 50,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: a.templateUrls.map((url) => Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ActionChip(
+                        avatar: const Icon(Icons.file_download, size: 16),
+                        label: const Text('Download Template'),
+                        onPressed: () => launchUrl(Uri.parse(url)),
+                      ),
+                    )).toList(),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -221,8 +299,8 @@ class _SyllabusTabView extends ConsumerWidget {
 
 class _StudentsTabView extends ConsumerWidget {
   final String cohortId;
-  final String inviteToken;
-  const _StudentsTabView({required this.cohortId, required this.inviteToken});
+  final String classCode;
+  const _StudentsTabView({required this.cohortId, required this.classCode});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -231,43 +309,54 @@ class _StudentsTabView extends ConsumerWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Invite Link
+        // Class Code Panel
         Expanded(
           flex: 1,
           child: Padding(
             padding: const EdgeInsets.all(24.0),
             child: Card(
-              color: Theme.of(context).colorScheme.primaryContainer,
+              color: Theme.of(context).colorScheme.secondaryContainer,
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(24.0),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text('Secure Invite Link (TTL)', style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 8),
-                    const Text('Generate a secure link that expires in 24 hours.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    Icon(Icons.qr_code_2, size: 48, color: Theme.of(context).colorScheme.onSecondaryContainer),
                     const SizedBox(height: 16),
-                    Center(
-                      child: FilledButton.icon(
-                        icon: const Icon(Icons.link),
-                        label: const Text('Generate & Copy Link'),
-                        onPressed: () async {
-                          final token = await ref.read(cohortRepositoryProvider).generateTTLToken(cohortId);
-                          final link = 'devcohort://join?token=$token';
-                          await Clipboard.setData(ClipboardData(text: link));
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Copied: $link'), behavior: SnackBarBehavior.floating)
-                            );
-                          }
-                        },
+                    Text(
+                      'Class Code',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onSecondaryContainer,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Divider(),
-                    const SizedBox(height: 8),
-                    Text('Permanent Token: $inviteToken', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                    SelectableText(
+                      classCode,
+                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                        color: Theme.of(context).colorScheme.primary,
+                        letterSpacing: 4,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Share this code with your students so they can join this cohort from their dashboard.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 24),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: classCode));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Code copied to clipboard')),
+                        );
+                      },
+                      icon: const Icon(Icons.copy),
+                      label: const Text('Copy Code'),
+                    ),
                   ],
                 ),
               ),
@@ -275,7 +364,7 @@ class _StudentsTabView extends ConsumerWidget {
           ),
         ),
         const VerticalDivider(width: 1),
-        // Enrollments
+        // Enrollments List
         Expanded(
           flex: 2,
           child: Padding(
@@ -283,12 +372,12 @@ class _StudentsTabView extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Students', style: Theme.of(context).textTheme.titleLarge),
+                Text('Enrolled Students', style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 16),
                 Expanded(
                   child: enrollmentsAsync.when(
                     data: (enrollments) {
-                      if (enrollments.isEmpty) return const Text('No students enrolled yet.');
+                      if (enrollments.isEmpty) return const Center(child: Text('No students enrolled yet.'));
                       return ListView.separated(
                         itemCount: enrollments.length,
                         separatorBuilder: (_, __) => const Divider(),
@@ -457,6 +546,19 @@ class _ReviewTabViewState extends ConsumerState<_ReviewTabView> {
                     if (submission.liveDemoUrl != null) ...[
                       const SizedBox(height: 8),
                       _LinkButton(label: 'Live Demo', url: submission.liveDemoUrl!, icon: Icons.launch),
+                    ],
+                    if (submission.fileUrls.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      const Text('Attachments:', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                      const SizedBox(height: 8),
+                      ...submission.fileUrls.map((url) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _LinkButton(
+                          label: 'Download File', 
+                          url: url, 
+                          icon: Icons.file_download,
+                        ),
+                      )),
                     ],
                     const SizedBox(height: 32),
                     const Text('Grading:', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -701,5 +803,210 @@ class _StatusOption extends StatelessWidget {
         fontWeight: FontWeight.bold,
       ),
     );
+  }
+}
+
+final attendanceProvider = FutureProvider.family<Map<String, String>, ({String cohortId, String date})>((ref, arg) {
+  return ref.read(attendanceRepositoryProvider).getAttendance(arg.cohortId, arg.date);
+});
+
+class _AttendanceTabView extends ConsumerStatefulWidget {
+  final String cohortId;
+  const _AttendanceTabView({required this.cohortId});
+
+  @override
+  _AttendanceTabViewState createState() => _AttendanceTabViewState();
+}
+
+class _AttendanceTabViewState extends ConsumerState<_AttendanceTabView> {
+  DateTime _selectedDate = DateTime.now();
+  Map<String, String> _currentStatus = {};
+
+  String _formatDate(DateTime date) => "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
+
+  @override
+  Widget build(BuildContext context) {
+    final enrollmentsAsync = ref.watch(enrollmentsProvider(widget.cohortId));
+    final dateKey = _formatDate(_selectedDate);
+    final savedAttendanceAsync = ref.watch(attendanceProvider((cohortId: widget.cohortId, date: dateKey)));
+
+    return Scaffold(
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Row(
+              children: [
+                Text('Date: $dateKey', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(width: 16),
+                IconButton(
+                  icon: const Icon(Icons.calendar_month),
+                  onPressed: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _selectedDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) setState(() => _selectedDate = picked);
+                  },
+                ),
+                const Spacer(),
+                FilledButton.icon(
+                  onPressed: () async {
+                    await ref.read(attendanceRepositoryProvider).saveAttendance(
+                      cohortId: widget.cohortId,
+                      date: dateKey,
+                      statusMap: _currentStatus,
+                    );
+                    ref.invalidate(attendanceProvider);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Attendance saved')));
+                  },
+                  icon: const Icon(Icons.save),
+                  label: const Text('Save Record'),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: enrollmentsAsync.when(
+              data: (enrollments) {
+                final activeStudents = enrollments.where((e) => e.status == 'active').toList();
+                if (activeStudents.isEmpty) return const Center(child: Text('No active students to track.'));
+
+                return savedAttendanceAsync.when(
+                  data: (saved) {
+                    return ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                      itemCount: activeStudents.length,
+                      separatorBuilder: (_, __) => const Divider(),
+                      itemBuilder: (context, index) {
+                        final student = activeStudents[index];
+                        final studentId = student.studentId;
+                        final currentVal = _currentStatus[studentId] ?? saved[studentId] ?? 'present';
+
+                        return ListTile(
+                          title: Text('Student ID: $studentId'),
+                          trailing: SegmentedButton<String>(
+                            segments: const [
+                              ButtonSegment(value: 'present', label: Text('P'), tooltip: 'Present'),
+                              ButtonSegment(value: 'absent', label: Text('A'), tooltip: 'Absent'),
+                              ButtonSegment(value: 'late', label: Text('L'), tooltip: 'Late'),
+                            ],
+                            selected: {currentVal},
+                            onSelectionChanged: (val) {
+                              setState(() => _currentStatus[studentId] = val.first);
+                            },
+                          ),
+                        );
+                      },
+                    );
+                  },
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (e, __) => Center(child: Text('Error loading record: $e')),
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, __) => Center(child: Text('Error: $e')),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsTabView extends ConsumerWidget {
+  final Cohort cohort;
+  const _SettingsTabView({required this.cohort});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Cohort Settings', style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 24),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Join Code Management', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 16),
+                  Text('Current Code: ${cohort.classCode}', style: const TextStyle(fontSize: 18, letterSpacing: 2)),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      FilledButton.icon(
+                        onPressed: () => _confirmRegenerate(context, ref),
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Regenerate Code'),
+                      ),
+                      const SizedBox(width: 16),
+                      OutlinedButton.icon(
+                        onPressed: () => _setExpiry(context, ref),
+                        icon: const Icon(Icons.timer_outlined),
+                        label: const Text('Set Expiry'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Card(
+            color: Colors.red.shade50,
+            child: ListTile(
+              title: const Text('Danger Zone', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+              subtitle: const Text('Deleting this cohort will remove all curriculum and student associations.'),
+              trailing: TextButton(
+                onPressed: () {},
+                child: const Text('Delete Cohort', style: TextStyle(color: Colors.red)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmRegenerate(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Regenerate Code?'),
+        content: const Text('Existing students will stay enrolled, but the old code will immediately stop working for new students.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () {
+              ref.read(cohortRepositoryProvider).regenerateClassCode(cohort.id);
+              ref.invalidate(cohortListProvider);
+              Navigator.pop(ctx);
+            },
+            child: const Text('Regenerate'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _setExpiry(BuildContext context, WidgetRef ref) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now().add(const Duration(days: 30)),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null) {
+      ref.read(cohortRepositoryProvider).updateCodeExpiry(cohort.id, picked);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Code will expire on ${picked.toLocal()}')));
+    }
   }
 }

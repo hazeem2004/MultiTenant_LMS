@@ -32,9 +32,36 @@ class CurriculumController {
     ref.invalidate(curriculumProvider(cohortId));
   }
 
-  Future<void> addAssignment(String cohortId, String weekId, String title, String descriptionText, DateTime dueDate) async {
+  Future<void> addAssignment({
+    required String cohortId,
+    required String weekId,
+    required String title,
+    required String descriptionText,
+    required DateTime dueDate,
+    List<Map<String, dynamic>>? files, // List of {name, bytes}
+  }) async {
     final repo = ref.read(curriculumRepositoryProvider);
-    await repo.addAssignment(weekId, title, descriptionText, dueDate);
+    
+    List<String> templateUrls = [];
+    if (files != null && files.isNotEmpty) {
+      // Temporary ID for storage path if needed, but repo uses assignmentId.
+      // Actually repo needs assignmentId which is created IN the repo.
+      // So we might need to create the assignment first with empty URLs, then upload, then update.
+      // Or just use a random ID.
+      final tempId = DateTime.now().millisecondsSinceEpoch.toString();
+      for (var file in files) {
+        final url = await repo.uploadAssignmentTemplate(tempId, file['bytes'], file['name']);
+        templateUrls.add(url);
+      }
+    }
+
+    await repo.addAssignment(
+      weekId: weekId,
+      title: title,
+      descriptionText: descriptionText,
+      dueDate: dueDate,
+      templateUrls: templateUrls,
+    );
     ref.invalidate(curriculumProvider(cohortId));
   }
 }
