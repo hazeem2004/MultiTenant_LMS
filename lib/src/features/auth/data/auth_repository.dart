@@ -9,48 +9,60 @@ class AuthRepository {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  static String _currentRole = 'instructor';
-  static void setRole(String role) => _currentRole = role;
-
-  Future<AppUser?> signInWithGitHub() async {
+  Future<AppUser?> signInWithEmailAndPassword(String email, String password) async {
     try {
-      final GithubAuthProvider githubProvider = GithubAuthProvider();
-      
-      final UserCredential credential;
-      if (kIsWeb) {
-        credential = await _auth.signInWithPopup(githubProvider);
-      } else {
-        credential = await _auth.signInWithProvider(githubProvider);
+      final credential = await _auth.signInWithEmailAndPassword(email: email, password: password);
+      if (credential.user != null) {
+        final uid = credential.user!.uid;
+        
+        // Ensure admin@demo.com is always approved
+        if (email == 'admin@demo.com') {
+          await _firestore.collection('users').doc(uid).set({
+            'email': email,
+            'role': 'ADMIN',
+            'isApproved': true,
+          }, SetOptions(merge: true));
+        }
+
+        final doc = await _firestore.collection('users').doc(uid).get();
+        return AppUser.fromMap(uid, doc.data() ?? {});
       }
-      
+      return null;
+    } catch (e) {
+      print('Sign-In Error: $e');
+      rethrow;
+    }
+  }
+
+  Future<AppUser?> registerWithEmailAndPassword({
+    required String email,
+    required String password,
+    required String name,
+    required String role,
+  }) async {
+    try {
+      final credential = await _auth.createUserWithEmailAndPassword(email: email, password: password);
       if (credential.user != null) {
         final user = credential.user!;
         
-        // Sync with Firestore
-        final userDocRef = _firestore.collection('users').doc(user.uid);
-        final docSnapshot = await userDocRef.get();
-        
-        String role = 'instructor'; // Default role for GitHub login
-        
-        if (!docSnapshot.exists) {
-          await userDocRef.set({
-            'email': user.email ?? '',
-            'role': role,
-            'createdAt': FieldValue.serverTimestamp(),
-          });
-        } else {
-          role = docSnapshot.data()?['role'] as String? ?? 'instructor';
-        }
-        
+        await _firestore.collection('users').doc(user.uid).set({
+          'email': email,
+          'name': name,
+          'role': role,
+          'isApproved': false,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
         return AppUser(
           uid: user.uid,
-          email: user.email ?? '',
+          email: email,
           role: role,
+          isApproved: false,
         );
       }
       return null;
     } catch (e) {
-      print('GitHub Sign-In Error: $e');
+      print('Register Error: $e');
       rethrow;
     }
   }
@@ -64,13 +76,7 @@ class AuthRepository {
       if (user == null) return null;
       
       final doc = await _firestore.collection('users').doc(user.uid).get();
-      final role = doc.data()?['role'] as String? ?? 'student';
-      
-      return AppUser(
-        uid: user.uid,
-        email: user.email ?? '',
-        role: role,
-      );
+      return AppUser.fromMap(user.uid, doc.data() ?? {});
     });
   }
 }

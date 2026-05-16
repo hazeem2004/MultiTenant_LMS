@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../features/auth/application/auth_controller.dart';
 import '../features/auth/presentation/login_screen.dart';
+import '../features/auth/presentation/register_screen.dart';
+import '../features/auth/presentation/pending_approval_screen.dart';
 import '../features/instructor/presentation/instructor_dashboard.dart';
 import '../features/student/presentation/student_dashboard.dart';
 
 import '../features/instructor/presentation/cohort_detail_screen.dart';
-import '../features/student/presentation/join_cohort_screen.dart';
+import '../features/admin/presentation/admin_dashboard.dart';
 
 final goRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authControllerProvider);
@@ -16,22 +18,34 @@ final goRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/login',
     redirect: (context, state) {
+      if (authState.isLoading) return null; // Wait for auth state to load
+
       final isLoggedIn = authState.value != null;
       final isLoggingIn = state.uri.path == '/login';
+      final isRegistering = state.uri.path == '/register';
+      final isPending = state.uri.path == '/pending';
       final isJoining = state.uri.path == '/join';
 
       if (!isLoggedIn) {
-        // Allow unauthenticated users to hit the login page, or they might be trying to join
-        if (isJoining) {
-          // In a real app we'd redirect to login and then back to join,
-          // For simplicity in mock, just force login if not logged in.
-          return '/login'; 
-        }
+        if (isJoining || isRegistering) return null; // Allow joining or registering
         return isLoggingIn ? null : '/login';
       }
 
-      if (isLoggingIn && isLoggedIn) {
-        final user = authState.value!;
+      final user = authState.value!;
+
+      // Handle Approval Logic - Admins bypass this check
+      if (!user.isApproved && !user.isAdmin) {
+        return isPending ? null : '/pending';
+      }
+
+      // If approved but trying to hit pending, redirect to dashboard
+      if (isPending) {
+        if (user.isAdmin) return '/admin';
+        return user.isInstructor ? '/instructor' : '/student';
+      }
+
+      if ((isLoggingIn || isRegistering) && isLoggedIn) {
+        if (user.isAdmin) return '/admin';
         return user.isInstructor ? '/instructor' : '/student';
       }
 
@@ -41,6 +55,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/login',
         builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: '/register',
+        builder: (context, state) => const RegisterScreen(),
+      ),
+      GoRoute(
+        path: '/pending',
+        builder: (context, state) => const PendingApprovalScreen(),
       ),
       GoRoute(
         path: '/instructor',
@@ -60,12 +82,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const StudentDashboard(),
       ),
       GoRoute(
-        path: '/join',
-        builder: (context, state) {
-          final token = state.uri.queryParameters['token'] ?? '';
-          return JoinCohortScreen(token: token);
-        },
+        path: '/admin',
+        builder: (context, state) => const AdminDashboard(),
       ),
     ],
   );
 });
+
