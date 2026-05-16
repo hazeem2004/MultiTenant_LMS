@@ -21,6 +21,21 @@ class AttendanceRepository {
     });
   }
 
+  Future<Map<String, String>> getAttendance(String cohortId, String date) async {
+    final doc = await _firestore
+        .collection('cohorts')
+        .doc(cohortId)
+        .collection('attendance')
+        .doc(date)
+        .get();
+    
+    if (doc.exists) {
+      final data = doc.data()!;
+      return Map<String, String>.from(data['statuses'] ?? {});
+    }
+    return {};
+  }
+
   Stream<Map<String, String>> watchAttendance(String cohortId, String date) {
     return _firestore
         .collection('cohorts')
