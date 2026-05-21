@@ -14,6 +14,25 @@ class CohortRepository {
     return snapshot.docs.map((doc) => Cohort.fromMap(doc.id, doc.data())).toList();
   }
 
+  Stream<List<Cohort>> watchCohortsForInstructor(String instructorId) {
+    return _cohortsRef
+        .where('instructorId', isEqualTo: instructorId)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => Cohort.fromMap(doc.id, doc.data())).toList());
+  }
+
+  Stream<List<Cohort>> watchCohortsByIds(List<String> cohortIds) {
+    if (cohortIds.isEmpty) return Stream.value([]);
+    
+    // Note: Firestore has a limit of 10-30 IDs for 'whereIn' depending on version.
+    // For simplicity, we assume cohortIds.length <= 10 for real-time streams here, 
+    // or we'd need to combine multiple streams.
+    return _cohortsRef
+        .where(FieldPath.documentId, whereIn: cohortIds)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => Cohort.fromMap(doc.id, doc.data())).toList());
+  }
+
   Future<Cohort?> getCohortByClassCode(String code) async {
     final snapshot = await _cohortsRef.where('classCode', isEqualTo: code).limit(1).get();
     if (snapshot.docs.isNotEmpty) {

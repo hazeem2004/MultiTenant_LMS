@@ -19,6 +19,62 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 650;
+    
+    final mainContent = IndexedStack(
+      index: _selectedIndex,
+      children: const [
+        _OverviewTab(),
+        _UserManagementTab(),
+        _CohortManagementTab(),
+      ],
+    );
+
+    if (isMobile) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(
+            _selectedIndex == 0 
+                ? 'Overview' 
+                : _selectedIndex == 1 
+                    ? 'Users' 
+                    : 'Cohorts',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          actions: [
+            IconButton(
+              onPressed: () => ref.read(authControllerProvider.notifier).signOut(),
+              icon: const Icon(Icons.logout_rounded),
+              tooltip: 'Sign Out',
+            ),
+            const SizedBox(width: 8),
+          ],
+        ),
+        body: SafeArea(child: mainContent),
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _selectedIndex,
+          onDestinationSelected: (index) => setState(() => _selectedIndex = index),
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.dashboard_outlined),
+              selectedIcon: Icon(Icons.dashboard),
+              label: 'Overview',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.people_outline),
+              selectedIcon: Icon(Icons.people),
+              label: 'Users',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.class_outlined),
+              selectedIcon: Icon(Icons.class_),
+              label: 'Cohorts',
+            ),
+          ],
+        ),
+      );
+    }
+
     return Scaffold(
       body: Row(
         children: [
@@ -68,14 +124,7 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
           ),
           const VerticalDivider(thickness: 1, width: 1),
           Expanded(
-            child: IndexedStack(
-              index: _selectedIndex,
-              children: const [
-                _OverviewTab(),
-                _UserManagementTab(),
-                _CohortManagementTab(),
-              ],
-            ),
+            child: mainContent,
           ),
         ],
       ),
@@ -89,50 +138,77 @@ class _OverviewTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final statsAsync = ref.watch(systemStatsProvider);
+    final isMobile = MediaQuery.of(context).size.width < 650;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Platform Overview'), centerTitle: false),
+      appBar: isMobile 
+          ? null 
+          : AppBar(title: const Text('Platform Overview'), centerTitle: false),
       body: statsAsync.when(
         data: (stats) => SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('System Metrics', style: Theme.of(context).textTheme.headlineSmall),
+              Text('System Metrics', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
               const SizedBox(height: 24),
-              Row(
-                children: [
-                  _StatCard(title: 'Active Cohorts', value: stats['cohorts']!, icon: Icons.rocket_launch, color: Colors.blue),
-                  const SizedBox(width: 16),
-                  _StatCard(title: 'Total Students', value: stats['students']!, icon: Icons.school, color: Colors.green),
-                  const SizedBox(width: 16),
-                  _StatCard(title: 'Instructors', value: stats['instructors']!, icon: Icons.person_pin, color: Colors.orange),
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  if (constraints.maxWidth < 600) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _StatCard(title: 'Active Cohorts', value: stats['cohorts']!, icon: Icons.rocket_launch, color: Colors.blue),
+                        const SizedBox(height: 16),
+                        _StatCard(title: 'Total Students', value: stats['students']!, icon: Icons.school, color: Colors.green),
+                        const SizedBox(height: 16),
+                        _StatCard(title: 'Instructors', value: stats['instructors']!, icon: Icons.person_pin, color: Colors.orange),
+                      ],
+                    );
+                  }
+                  return Row(
+                    children: [
+                      Expanded(child: _StatCard(title: 'Active Cohorts', value: stats['cohorts']!, icon: Icons.rocket_launch, color: Colors.blue)),
+                      const SizedBox(width: 16),
+                      Expanded(child: _StatCard(title: 'Total Students', value: stats['students']!, icon: Icons.school, color: Colors.green)),
+                      const SizedBox(width: 16),
+                      Expanded(child: _StatCard(title: 'Instructors', value: stats['instructors']!, icon: Icons.person_pin, color: Colors.orange)),
+                    ],
+                  );
+                }
               ),
               const SizedBox(height: 40),
-              Text('User Distribution', style: Theme.of(context).textTheme.titleLarge),
+              Text('User Distribution', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
               const SizedBox(height: 24),
               SizedBox(
                 height: 300,
                 child: Card(
+                  elevation: 2,
+                  shadowColor: Colors.black.withOpacity(0.04),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: Colors.grey.shade200),
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.all(24.0),
                     child: PieChart(
                       PieChartData(
+                        sectionsSpace: 4,
+                        centerSpaceRadius: 40,
                         sections: [
                           PieChartSectionData(
                             value: stats['students']!.toDouble(),
                             title: 'Students',
-                            color: Colors.green,
-                            radius: 100,
-                            titleStyle: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                            color: const Color(0xFF6D28D9),
+                            radius: 80,
+                            titleStyle: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13),
                           ),
                           PieChartSectionData(
                             value: stats['instructors']!.toDouble(),
                             title: 'Teachers',
-                            color: Colors.orange,
-                            radius: 100,
-                            titleStyle: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                            color: const Color(0xFF4F46E5),
+                            radius: 80,
+                            titleStyle: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13),
                           ),
                         ],
                       ),
@@ -156,54 +232,74 @@ class _UserManagementTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final usersAsync = ref.watch(allUsersProvider);
+    final isMobile = MediaQuery.of(context).size.width < 650;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('User Management'), centerTitle: false),
+      appBar: isMobile 
+          ? null 
+          : AppBar(title: const Text('User Management'), centerTitle: false),
       body: usersAsync.when(
         data: (users) => SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Card(
-            child: SizedBox(
-              width: double.infinity,
-              child: DataTable(
-                columns: const [
-                  DataColumn(label: Text('User')),
-                  DataColumn(label: Text('Role')),
-                  DataColumn(label: Text('Status')),
-                  DataColumn(label: Text('Actions')),
-                ],
-                rows: users.map((user) => DataRow(
-                  cells: [
-                    DataCell(Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(user.email, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        Text(user.uid, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                      ],
-                    )),
-                    DataCell(DropdownButton<String>(
-                      value: user.role.toUpperCase(),
-                      items: ['ADMIN', 'INSTRUCTOR', 'STUDENT'].map((r) => DropdownMenuItem(
-                        value: r,
-                        child: Text(r),
-                      )).toList(),
-                      onChanged: (val) {
-                        if (val != null) {
-                          ref.read(adminControllerProvider.notifier).updateUserRole(user.uid, val);
-                        }
-                      },
-                    )),
-                    DataCell(Switch(
-                      value: user.isApproved,
-                      onChanged: (_) => ref.read(adminControllerProvider.notifier).toggleApproval(user.uid, user.isApproved),
-                    )),
-                    DataCell(IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Colors.red),
-                      onPressed: () => _confirmDelete(context, ref, user),
-                    )),
+            elevation: 2,
+            shadowColor: Colors.black.withOpacity(0.04),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: Colors.grey.shade200),
+            ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minWidth: MediaQuery.of(context).size.width - 96,
+                ),
+                child: DataTable(
+                  horizontalMargin: 24,
+                  columnSpacing: 24,
+                  columns: const [
+                    DataColumn(label: Text('User', style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text('Role', style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
                   ],
-                )).toList(),
+                  rows: users.map((user) => DataRow(
+                    cells: [
+                      DataCell(Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(user.email, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            Text(user.uid, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                          ],
+                        ),
+                      )),
+                      DataCell(DropdownButton<String>(
+                        value: user.role.toUpperCase(),
+                        items: ['ADMIN', 'INSTRUCTOR', 'STUDENT'].map((r) => DropdownMenuItem(
+                          value: r,
+                          child: Text(r),
+                        )).toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            ref.read(adminControllerProvider.notifier).updateUserRole(user.uid, val);
+                          }
+                        },
+                      )),
+                      DataCell(Switch(
+                        activeColor: Theme.of(context).colorScheme.primary,
+                        value: user.isApproved,
+                        onChanged: (_) => ref.read(adminControllerProvider.notifier).toggleApproval(user.uid, user.isApproved),
+                      )),
+                      DataCell(IconButton(
+                        icon: const Icon(Icons.delete_outline, color: Colors.red),
+                        onPressed: () => _confirmDelete(context, ref, user),
+                      )),
+                    ],
+                  )).toList(),
+                ),
               ),
             ),
           ),
@@ -241,33 +337,44 @@ class _CohortManagementTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // We need a way to list all cohorts. 
-    // Let's assume instructor dashboard logic can be repurposed or we add a global cohorts provider.
-    final cohortsAsync = ref.watch(cohortListProvider); // Existing provider
+    final cohortsAsync = ref.watch(cohortListProvider);
     final instructorsAsync = ref.watch(usersByRoleProvider('INSTRUCTOR'));
+    final isMobile = MediaQuery.of(context).size.width < 650;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Cohort Management'), centerTitle: false),
+      appBar: isMobile 
+          ? null 
+          : AppBar(title: const Text('Cohort Management'), centerTitle: false),
       body: cohortsAsync.when(
-        data: (cohorts) => ListView.builder(
-          padding: const EdgeInsets.all(24),
-          itemCount: cohorts.length,
-          itemBuilder: (context, index) {
-            final cohort = cohorts[index];
-            return Card(
-              margin: const EdgeInsets.only(bottom: 16),
-              child: ListTile(
-                title: Text(cohort.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text('Instructor ID: ${cohort.instructorId}'),
-                trailing: TextButton.icon(
-                  onPressed: () => _showReassignDialog(context, ref, cohort, instructorsAsync),
-                  icon: const Icon(Icons.swap_horiz),
-                  label: const Text('Reassign'),
+        data: (cohorts) {
+          if (cohorts.isEmpty) {
+            return const Center(child: Text('No cohorts created yet.'));
+          }
+          return ListView.builder(
+            padding: const EdgeInsets.all(24),
+            itemCount: cohorts.length,
+            itemBuilder: (context, index) {
+              final cohort = cohorts[index];
+              return Card(
+                margin: const EdgeInsets.only(bottom: 16),
+                elevation: 2,
+                shadowColor: Colors.black.withOpacity(0.04),
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: ListTile(
+                    title: Text(cohort.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    subtitle: Text('Instructor ID: ${cohort.instructorId}'),
+                    trailing: TextButton.icon(
+                      onPressed: () => _showReassignDialog(context, ref, cohort, instructorsAsync),
+                      icon: const Icon(Icons.swap_horiz, size: 20),
+                      label: const Text('Reassign'),
+                    ),
+                  ),
                 ),
-              ),
-            );
-          },
-        ),
+              );
+            },
+          );
+        },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, __) => Center(child: Text('Error: $e')),
       ),
@@ -280,17 +387,26 @@ class _CohortManagementTab extends ConsumerWidget {
       builder: (ctx) => AlertDialog(
         title: const Text('Reassign Cohort'),
         content: instructorsAsync.when(
-          data: (instructors) => Column(
-            mainAxisSize: MainAxisSize.min,
-            children: instructors.map((i) => ListTile(
-              title: Text(i.email),
-              onTap: () {
-                ref.read(adminControllerProvider.notifier).updateCohortInstructor(cohort.id, i.uid);
-                Navigator.pop(ctx);
-              },
-            )).toList(),
+          data: (instructors) {
+            if (instructors.isEmpty) {
+              return const Text('No instructors available to reassign.');
+            }
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: instructors.map((i) => ListTile(
+                title: Text(i.email),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  ref.read(adminControllerProvider.notifier).updateCohortInstructor(cohort.id, i.uid);
+                  Navigator.pop(ctx);
+                },
+              )).toList(),
+            );
+          },
+          loading: () => const SizedBox(
+            height: 100,
+            child: Center(child: CircularProgressIndicator()),
           ),
-          loading: () => const CircularProgressIndicator(),
           error: (e, __) => Text('Error: $e'),
         ),
       ),
@@ -308,19 +424,43 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(icon, color: color, size: 32),
-              const SizedBox(height: 16),
-              Text(value.toString(), style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
-              Text(title, style: Theme.of(context).textTheme.bodySmall),
-            ],
-          ),
+    return Card(
+      elevation: 2,
+      shadowColor: Colors.black.withOpacity(0.04),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              value.toString(), 
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              title, 
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade600,
+                  ),
+            ),
+          ],
         ),
       ),
     );

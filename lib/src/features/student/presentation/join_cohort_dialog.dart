@@ -49,35 +49,54 @@ class _JoinCohortDialogState extends ConsumerState<JoinCohortDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Join a Class'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Row(
         children: [
-          const Text('Enter the 6-character Class Code shared by your instructor.'),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _codeController,
-            decoration: InputDecoration(
-              labelText: 'Class Code',
-              hintText: 'e.g. AB12CD',
-              border: const OutlineInputBorder(),
-              errorText: _errorMessage,
-            ),
-            textCapitalization: TextCapitalization.characters,
-            onSubmitted: (_) => _submit(),
-          ),
+          Icon(Icons.school, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(width: 12),
+          const Text('Join a Class', style: TextStyle(fontWeight: FontWeight.bold)),
         ],
       ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Enter the 6-character Class Code shared by your instructor to join their learning circle.',
+              style: TextStyle(fontSize: 14, color: Colors.black87),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _codeController,
+              decoration: InputDecoration(
+                labelText: 'Class Code',
+                hintText: 'e.g. AB12CD',
+                prefixIcon: const Icon(Icons.pin),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                errorText: _errorMessage,
+              ),
+              textCapitalization: TextCapitalization.characters,
+              onSubmitted: (_) => _submit(),
+            ),
+          ],
+        ),
+      ),
+      actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       actions: [
         TextButton(
           onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600)),
         ),
         FilledButton(
           onPressed: _isLoading ? null : _submit,
+          style: FilledButton.styleFrom(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            minimumSize: const Size(80, 40),
+          ),
           child: _isLoading 
-            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-            : const Text('Join'),
+            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+            : const Text('Join', style: TextStyle(fontWeight: FontWeight.bold)),
         ),
       ],
     );

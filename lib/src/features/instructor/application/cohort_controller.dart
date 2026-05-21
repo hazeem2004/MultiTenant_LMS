@@ -3,41 +3,30 @@ import '../../auth/application/auth_controller.dart';
 import '../data/cohort_repository.dart';
 import '../domain/cohort.dart';
 
-class CohortListController extends AsyncNotifier<List<Cohort>> {
+class CohortListController extends StreamNotifier<List<Cohort>> {
   @override
-  Future<List<Cohort>> build() async {
-    return _fetchUserCohorts();
-  }
-
-  Future<List<Cohort>> _fetchUserCohorts() async {
-    final user = ref.read(authControllerProvider).value;
-    if (user == null) return [];
+  Stream<List<Cohort>> build() {
+    final user = ref.watch(authControllerProvider).value;
+    if (user == null) return Stream.value([]);
+    
     final repo = ref.read(cohortRepositoryProvider);
-    return repo.fetchCohortsForInstructor(user.uid);
+    return repo.watchCohortsForInstructor(user.uid);
   }
 
   Future<void> addCohort(String name, String description) async {
     final user = ref.read(authControllerProvider).value;
     if (user == null) return;
     
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
-      final repo = ref.read(cohortRepositoryProvider);
-      await repo.createCohort(name, description, user.uid);
-      return _fetchUserCohorts();
-    });
+    final repo = ref.read(cohortRepositoryProvider);
+    await repo.createCohort(name, description, user.uid);
   }
 
   Future<void> deleteCohort(String cohortId) async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
-      final repo = ref.read(cohortRepositoryProvider);
-      await repo.deleteCohort(cohortId);
-      return _fetchUserCohorts();
-    });
+    final repo = ref.read(cohortRepositoryProvider);
+    await repo.deleteCohort(cohortId);
   }
 }
 
-final cohortListProvider = AsyncNotifierProvider<CohortListController, List<Cohort>>(() {
+final cohortListProvider = StreamNotifierProvider<CohortListController, List<Cohort>>(() {
   return CohortListController();
 });

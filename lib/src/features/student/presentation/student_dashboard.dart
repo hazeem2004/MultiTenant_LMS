@@ -482,99 +482,101 @@ class _CohortCurriculumView extends ConsumerWidget {
             right: 24,
             top: 32,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Submit Assignment', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              const Text('Please upload your project files or provide a GitHub link.', style: TextStyle(color: Colors.grey)),
-              const SizedBox(height: 24),
-              
-              TextField(
-                key: const Key('githubUrlField'),
-                controller: githubCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'GitHub Repository URL',
-                  hintText: 'https://github.com/username/repo',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.link),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Submit Assignment', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                const Text('Please upload your project files or provide a GitHub link.', style: TextStyle(color: Colors.grey)),
+                const SizedBox(height: 24),
+                
+                TextField(
+                  key: const Key('githubUrlField'),
+                  controller: githubCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'GitHub Repository URL',
+                    hintText: 'https://github.com/username/repo',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.link),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              
-              OutlinedButton.icon(
-                onPressed: () async {
-                  final result = await fp.FilePicker.pickFiles(
-                    allowMultiple: true,
-                    type: fp.FileType.custom,
-                    allowedExtensions: ['pdf', 'zip', 'docx'],
-                  );
-                  if (result != null) {
-                    setModalState(() => selectedFiles = result.files);
-                  }
-                },
-                icon: const Icon(Icons.add_link),
-                label: const Text('Select Files to Upload'),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 56),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-              
-              if (selectedFiles.isNotEmpty) ...[
                 const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    children: selectedFiles.map((f) => ListTile(
-                      dense: true,
-                      leading: const Icon(Icons.insert_drive_file, size: 20),
-                      title: Text(f.name),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.close, size: 18),
-                        onPressed: () => setModalState(() => selectedFiles.remove(f)),
-                      ),
-                    )).toList(),
-                  ),
-                ),
-              ],
-              
-              const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: FilledButton(
-                  key: const Key('submitWorkButton'),
+                
+                OutlinedButton.icon(
                   onPressed: () async {
-                    final filesData = selectedFiles.map((f) => {
-                      'name': f.name,
-                      'bytes': f.bytes ?? Uint8List(0),
-                    }).toList();
-
-                    await ref.read(submissionsControllerProvider).submitAssignment(
-                      studentId: user?.uid ?? '',
-                      assignmentId: assignmentId,
-                      githubUrl: githubCtrl.text.isNotEmpty ? githubCtrl.text : 'Uploaded Files',
-                      files: filesData,
+                    final result = await fp.FilePicker.pickFiles(
+                      allowMultiple: true,
+                      type: fp.FileType.custom,
+                      allowedExtensions: ['pdf', 'zip', 'docx'],
                     );
-                    
-                    if (context.mounted) {
-                      Navigator.pop(ctx);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Assignment submitted successfully!')),
-                      );
+                    if (result != null) {
+                      setModalState(() => selectedFiles = result.files);
                     }
                   },
-                  child: const Text('Submit My Work', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  icon: const Icon(Icons.add_link),
+                  label: const Text('Select Files to Upload'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 56),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 32),
-            ],
+                
+                if (selectedFiles.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      children: selectedFiles.map((f) => ListTile(
+                        dense: true,
+                        leading: const Icon(Icons.insert_drive_file, size: 20),
+                        title: Text(f.name),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.close, size: 18),
+                          onPressed: () => setModalState(() => selectedFiles.remove(f)),
+                        ),
+                      )).toList(),
+                    ),
+                  ),
+                ],
+                
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: FilledButton(
+                    key: const Key('submitWorkButton'),
+                    onPressed: () async {
+                      final filesData = selectedFiles.map((f) => {
+                        'name': f.name,
+                        'bytes': f.bytes ?? Uint8List(0),
+                      }).toList();
+
+                      await ref.read(submissionsControllerProvider).submitAssignment(
+                        studentId: user?.uid ?? '',
+                        assignmentId: assignmentId,
+                        githubUrl: githubCtrl.text.isNotEmpty ? githubCtrl.text : 'Uploaded Files',
+                        files: filesData,
+                      );
+                      
+                      if (context.mounted) {
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Assignment submitted successfully!')),
+                        );
+                      }
+                    },
+                    child: const Text('Submit My Work', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(height: 32),
+              ],
+            ),
           ),
         ),
       ),

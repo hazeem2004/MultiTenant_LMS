@@ -101,17 +101,61 @@ class _OverallAttendanceScreenState extends ConsumerState<OverallAttendanceScree
   void _showStatusPicker(BuildContext context, WidgetRef ref, String cohortId, String date, String studentId, Map<String, String> currentMap) {
     showModalBottomSheet(
       context: context,
-      builder: (ctx) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: ['present', 'absent', 'late', 'missing'].map((status) => ListTile(
-          title: Text(status.toUpperCase()),
-          onTap: () {
-            final newMap = Map<String, String>.from(currentMap);
-            newMap[studentId] = status;
-            ref.read(attendanceRepositoryProvider).saveAttendance(cohortId: cohortId, date: date, statusMap: newMap);
-            Navigator.pop(ctx);
-          },
-        )).toList(),
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Mark Attendance',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Student: $studentId • Date: $date',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(),
+              ...['present', 'absent', 'late', 'missing'].map((status) {
+                Color color;
+                IconData icon;
+                switch (status) {
+                  case 'present': color = Colors.green; icon = Icons.check_circle_outline; break;
+                  case 'absent': color = Colors.red; icon = Icons.cancel_outlined; break;
+                  case 'late': color = Colors.orange; icon = Icons.access_time; break;
+                  default: color = Colors.grey; icon = Icons.help_outline;
+                }
+                return ListTile(
+                  leading: Icon(icon, color: color),
+                  title: Text(
+                    status.toUpperCase(),
+                    style: TextStyle(fontWeight: FontWeight.w600, color: color, fontSize: 14, letterSpacing: 0.5),
+                  ),
+                  onTap: () {
+                    final newMap = Map<String, String>.from(currentMap);
+                    newMap[studentId] = status;
+                    ref.read(attendanceRepositoryProvider).saveAttendance(cohortId: cohortId, date: date, statusMap: newMap);
+                    Navigator.pop(ctx);
+                  },
+                );
+              }).toList(),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -123,20 +167,55 @@ class _StatusIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color color;
+    Color textColor;
+    Color bgColor;
     IconData icon;
+    
     switch (status) {
-      case 'present': color = Colors.green; icon = Icons.check_circle; break;
-      case 'absent': color = Colors.red; icon = Icons.cancel; break;
-      case 'late': color = Colors.orange; icon = Icons.access_time; break;
-      default: color = Colors.grey; icon = Icons.help_outline;
+      case 'present':
+        textColor = const Color(0xFF15803D);
+        bgColor = const Color(0xFFDCFCE7);
+        icon = Icons.check_circle;
+        break;
+      case 'absent':
+        textColor = const Color(0xFFB91C1C);
+        bgColor = const Color(0xFFFEE2E2);
+        icon = Icons.cancel;
+        break;
+      case 'late':
+        textColor = const Color(0xFFB45309);
+        bgColor = const Color(0xFFFEF3C7);
+        icon = Icons.access_time_filled;
+        break;
+      default:
+        textColor = Colors.grey.shade700;
+        bgColor = Colors.grey.shade100;
+        icon = Icons.help_outline;
     }
-    return Row(
-      children: [
-        Icon(icon, color: color, size: 16),
-        const SizedBox(width: 4),
-        Text(status, style: TextStyle(color: color, fontSize: 12)),
-      ],
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: textColor.withOpacity(0.12)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: textColor, size: 14),
+          const SizedBox(width: 6),
+          Text(
+            status,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.3,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

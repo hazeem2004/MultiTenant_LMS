@@ -60,63 +60,124 @@ class _StudentAttendanceScreenState extends ConsumerState<StudentAttendanceScree
                         return ListView(
                           padding: const EdgeInsets.all(24),
                           children: [
-                            Text('Overview', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                            Text('Overview', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                             const SizedBox(height: 24),
                             SizedBox(
                               height: 200,
                               child: PieChart(
                                 PieChartData(
-                                  sections: [
-                                    PieChartSectionData(
-                                      value: presentCount.toDouble(),
-                                      title: '${((presentCount/total)*100).toStringAsFixed(0)}%',
-                                      color: Colors.green,
-                                      radius: 60,
-                                      titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                    ),
-                                    PieChartSectionData(
-                                      value: absentCount.toDouble(),
-                                      title: '${((absentCount/total)*100).toStringAsFixed(0)}%',
-                                      color: Colors.red,
-                                      radius: 60,
-                                      titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                    ),
-                                    PieChartSectionData(
-                                      value: lateCount.toDouble(),
-                                      title: '${((lateCount/total)*100).toStringAsFixed(0)}%',
-                                      color: Colors.orange,
-                                      radius: 60,
-                                      titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                    ),
-                                  ],
+                                  sectionsSpace: 4,
                                   centerSpaceRadius: 40,
-                                  sectionsSpace: 2,
+                                  sections: [
+                                    if (presentCount > 0)
+                                      PieChartSectionData(
+                                        value: presentCount.toDouble(),
+                                        title: '${((presentCount/total)*100).toStringAsFixed(0)}%',
+                                        color: const Color(0xFF10B981),
+                                        radius: 65,
+                                        titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                      ),
+                                    if (absentCount > 0)
+                                      PieChartSectionData(
+                                        value: absentCount.toDouble(),
+                                        title: '${((absentCount/total)*100).toStringAsFixed(0)}%',
+                                        color: const Color(0xFFEF4444),
+                                        radius: 65,
+                                        titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                      ),
+                                    if (lateCount > 0)
+                                      PieChartSectionData(
+                                        value: lateCount.toDouble(),
+                                        title: '${((lateCount/total)*100).toStringAsFixed(0)}%',
+                                        color: const Color(0xFFF59E0B),
+                                        radius: 65,
+                                        titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                      ),
+                                  ],
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 24),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                _LegendItem(color: Colors.green, label: 'Present ($presentCount)'),
-                                const SizedBox(width: 16),
-                                _LegendItem(color: Colors.red, label: 'Absent ($absentCount)'),
-                                const SizedBox(width: 16),
-                                _LegendItem(color: Colors.orange, label: 'Late ($lateCount)'),
+                                _LegendItem(color: const Color(0xFF10B981), label: 'Present ($presentCount)'),
+                                const SizedBox(width: 20),
+                                _LegendItem(color: const Color(0xFFEF4444), label: 'Absent ($absentCount)'),
+                                const SizedBox(width: 20),
+                                _LegendItem(color: const Color(0xFFF59E0B), label: 'Late ($lateCount)'),
                               ],
                             ),
-                            const SizedBox(height: 32),
-                            Text('Absences & Lates', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 40),
+                            Text('Absences & Lates', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                             const SizedBox(height: 16),
-                            ...history.where((r) => r.status != 'present').map((r) => Card(
-                              child: ListTile(
-                                leading: Icon(r.status == 'absent' ? Icons.cancel : Icons.access_time, color: r.status == 'absent' ? Colors.red : Colors.orange),
-                                title: Text(r.date),
-                                subtitle: Text(r.status.toUpperCase()),
-                              ),
-                            )),
                             if (history.every((r) => r.status == 'present'))
-                              const Center(child: Text('Perfect attendance! Great job.', style: TextStyle(fontStyle: FontStyle.italic, color: Colors.green))),
+                              Center(
+                                child: Container(
+                                  padding: const EdgeInsets.all(24),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFDCFCE7),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: const Color(0xFF10B981).withOpacity(0.2)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.stars, color: Color(0xFF15803D)),
+                                      const SizedBox(width: 12),
+                                      const Expanded(
+                                        child: Text(
+                                          'Perfect attendance! Keep up the amazing work.',
+                                          style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF15803D), fontSize: 14),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              )
+                            else
+                              ...history.where((r) => r.status != 'present').map((r) {
+                                final isAbsent = r.status == 'absent';
+                                final color = isAbsent ? const Color(0xFFEF4444) : const Color(0xFFF59E0B);
+                                final bgColor = isAbsent ? const Color(0xFFFEE2E2) : const Color(0xFFFEF3C7);
+                                
+                                return Card(
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  elevation: 2,
+                                  shadowColor: Colors.black.withOpacity(0.04),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    side: BorderSide(color: Colors.grey.shade200),
+                                  ),
+                                  child: ListTile(
+                                    leading: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: bgColor,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        isAbsent ? Icons.cancel_outlined : Icons.access_time, 
+                                        color: color, 
+                                        size: 20,
+                                      ),
+                                    ),
+                                    title: Text(
+                                      r.date, 
+                                      style: const TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                    subtitle: Text(
+                                      r.status.toUpperCase(),
+                                      style: TextStyle(
+                                        color: color, 
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 12,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }),
                           ],
                         );
                       },

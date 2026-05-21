@@ -113,30 +113,61 @@ class _SyllabusTabView extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(week.title, style: Theme.of(context).textTheme.titleLarge),
-                          Row(
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final isNarrow = constraints.maxWidth < 600;
+                          final actionWrap = Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
                             children: [
                               TextButton.icon(
                                 onPressed: () => _showAddAssignmentDialog(context, ref, cohortId, week.id),
-                                icon: const Icon(Icons.assignment_add),
-                                label: const Text('Assignment'),
+                                icon: const Icon(Icons.assignment_add, size: 16),
+                                label: const Text('Assignment', style: TextStyle(fontSize: 12)),
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  minimumSize: const Size(48, 36),
+                                ),
                               ),
                               TextButton.icon(
                                 onPressed: () => _showAddQuizDialog(context, ref, cohortId, week.id),
-                                icon: const Icon(Icons.quiz),
-                                label: const Text('Quiz'),
+                                icon: const Icon(Icons.quiz, size: 16),
+                                label: const Text('Quiz', style: TextStyle(fontSize: 12)),
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  minimumSize: const Size(48, 36),
+                                ),
                               ),
                               TextButton.icon(
                                 onPressed: () => _showAddLectureNoteDialog(context, ref, cohortId, week.id),
-                                icon: const Icon(Icons.description),
-                                label: const Text('Note'),
+                                icon: const Icon(Icons.description, size: 16),
+                                label: const Text('Note', style: TextStyle(fontSize: 12)),
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  minimumSize: const Size(48, 36),
+                                ),
                               ),
                             ],
-                          )
-                        ],
+                          );
+
+                          if (isNarrow) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(week.title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 8),
+                                actionWrap,
+                              ],
+                            );
+                          }
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(week.title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                              actionWrap,
+                            ],
+                          );
+                        }
                       ),
                       const SizedBox(height: 16),
                       if (assignments.isEmpty && (curriculum.quizzesByWeek[week.id]?.isEmpty ?? true) && (curriculum.lectureNotesByWeek[week.id]?.isEmpty ?? true))
@@ -301,27 +332,12 @@ class _SyllabusTabView extends ConsumerWidget {
                     files: filesData,
                   );
 
-                  // Trigger Notifications for all enrolled students
-                  final enrollments = await ref.read(enrollmentsProvider(cohortId).future);
-                  final notifRepo = ref.read(notificationRepositoryProvider);
-                  
-                  for (var enrollment in enrollments) {
-                    if (enrollment.studentId.isNotEmpty) {
-                      await notifRepo.sendNotification(
-                        enrollment.studentId,
-                        AppNotification(
-                          id: '',
-                          title: 'New Assignment: ${titleCtrl.text}',
-                          body: 'A new assignment has been posted in your cohort.',
-                          timestamp: DateTime.now(),
-                          cohortId: cohortId,
-                          routeUrl: '/student/curriculum',
-                        ),
-                      );
-                    }
+                  if (context.mounted) {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Assignment created successfully!')),
+                    );
                   }
-
-                  Navigator.pop(ctx);
                 }
               },
               child: const Text('Create'),
@@ -379,14 +395,12 @@ class _SyllabusTabView extends ConsumerWidget {
                     ),
                   );
                   
-                  // Notify students
-                  final enrollments = await ref.read(enrollmentsProvider(cohortId).future);
-                  for (var e in enrollments) {
-                    await ref.read(notificationRepositoryProvider).sendNotification(e.studentId, AppNotification(
-                      id: '', title: 'New Quiz: ${titleCtrl.text}', body: 'Test your knowledge! A new quiz is available.', timestamp: DateTime.now(), cohortId: cohortId, routeUrl: '/student/curriculum',
-                    ));
+                  if (context.mounted) {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Quiz created successfully!')),
+                    );
                   }
-                  Navigator.pop(ctx);
                 }
               },
               child: const Text('Create'),
@@ -490,108 +504,149 @@ class _StudentsTabView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final enrollmentsAsync = ref.watch(enrollmentsProvider(cohortId));
+    final isMobile = MediaQuery.of(context).size.width < 650;
     
+    final classCodePanel = Card(
+      color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.15),
+      elevation: 2,
+      shadowColor: Colors.black.withOpacity(0.04),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Theme.of(context).colorScheme.primary.withOpacity(0.15)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.qr_code_2, size: 40, color: Theme.of(context).colorScheme.primary),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Class Code',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            SelectableText(
+              classCode,
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.w900,
+                color: Theme.of(context).colorScheme.primary,
+                letterSpacing: 4,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Share this code with your students so they can join this cohort from their dashboard.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 24),
+            OutlinedButton.icon(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: classCode));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Code copied to clipboard')),
+                );
+              },
+              icon: const Icon(Icons.copy, size: 18),
+              label: const Text('Copy Code'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 44),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final enrollmentsList = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Enrolled Students', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 16),
+        enrollmentsAsync.when(
+          data: (enrollments) {
+            if (enrollments.isEmpty) return const Center(child: Padding(padding: EdgeInsets.symmetric(vertical: 32), child: Text('No students enrolled yet.')));
+            return ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: enrollments.length,
+              separatorBuilder: (_, __) => const Divider(),
+              itemBuilder: (context, index) {
+                final enrollment = enrollments[index];
+                final isPending = enrollment.status == 'pending';
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                    child: Icon(Icons.person, color: Theme.of(context).colorScheme.primary),
+                  ),
+                  title: Text('Student ID: ${enrollment.studentId}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text('Status: ${enrollment.status.toUpperCase()}', style: TextStyle(color: isPending ? Colors.amber.shade700 : Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
+                  trailing: isPending
+                      ? FilledButton(
+                          onPressed: () {
+                            ref.read(enrollmentsControllerProvider)
+                               .approveStudent(cohortId, enrollment.id);
+                          },
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            minimumSize: const Size(60, 36),
+                          ),
+                          child: const Text('Approve'),
+                        )
+                      : const Icon(Icons.check_circle, color: Colors.green),
+                );
+              },
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, st) => Text('Error loading enrollments: $e'),
+        ),
+      ],
+    );
+
+    if (isMobile) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            classCodePanel,
+            const SizedBox(height: 32),
+            enrollmentsList,
+          ],
+        ),
+      );
+    }
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Class Code Panel
         Expanded(
           flex: 1,
           child: Padding(
             padding: const EdgeInsets.all(24.0),
-            child: Card(
-              color: Theme.of(context).colorScheme.secondaryContainer,
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Icon(Icons.qr_code_2, size: 48, color: Theme.of(context).colorScheme.onSecondaryContainer),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Class Code',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onSecondaryContainer,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    SelectableText(
-                      classCode,
-                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                        color: Theme.of(context).colorScheme.primary,
-                        letterSpacing: 4,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Share this code with your students so they can join this cohort from their dashboard.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                    const SizedBox(height: 24),
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        Clipboard.setData(ClipboardData(text: classCode));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Code copied to clipboard')),
-                        );
-                      },
-                      icon: const Icon(Icons.copy),
-                      label: const Text('Copy Code'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            child: SingleChildScrollView(child: classCodePanel),
           ),
         ),
         const VerticalDivider(width: 1),
-        // Enrollments List
         Expanded(
           flex: 2,
           child: Padding(
             padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Enrolled Students', style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: enrollmentsAsync.when(
-                    data: (enrollments) {
-                      if (enrollments.isEmpty) return const Center(child: Text('No students enrolled yet.'));
-                      return ListView.separated(
-                        itemCount: enrollments.length,
-                        separatorBuilder: (_, __) => const Divider(),
-                        itemBuilder: (context, index) {
-                          final enrollment = enrollments[index];
-                          final isPending = enrollment.status == 'pending';
-                          return ListTile(
-                            leading: const CircleAvatar(child: Icon(Icons.person)),
-                            title: Text('Student ID: ${enrollment.studentId}'),
-                            subtitle: Text('Status: ${enrollment.status.toUpperCase()}'),
-                            trailing: isPending
-                                ? FilledButton(
-                                    onPressed: () {
-                                      ref.read(enrollmentsControllerProvider)
-                                         .approveStudent(cohortId, enrollment.id);
-                                    },
-                                    child: const Text('Approve'),
-                                  )
-                                : const Icon(Icons.check_circle, color: Colors.green),
-                          );
-                        },
-                      );
-                    },
-                    loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (e, st) => Text('Error loading enrollments: $e'),
-                  ),
-                ),
-              ],
-            ),
+            child: SingleChildScrollView(child: enrollmentsList),
           ),
         )
       ],
@@ -713,73 +768,81 @@ class _ReviewTabViewState extends ConsumerState<_ReviewTabView> {
               padding: const EdgeInsets.all(32),
               child: StatefulBuilder(
                 builder: (ctx, setModalState) => Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Review Submission', style: Theme.of(context).textTheme.headlineSmall),
+                        Text('Review Submission', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
                         IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
                       ],
                     ),
-                    const Divider(height: 32),
-                    Text('Student ID: ${submission.studentId}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 16),
-                    const Text('Links:', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                    const SizedBox(height: 8),
-                    _LinkButton(label: 'GitHub Repository', url: submission.githubUrl, icon: Icons.code),
-                    if (submission.liveDemoUrl != null) ...[
-                      const SizedBox(height: 8),
-                      _LinkButton(label: 'Live Demo', url: submission.liveDemoUrl!, icon: Icons.launch),
-                    ],
-                    if (submission.fileUrls.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      const Text('Attachments:', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                      const SizedBox(height: 8),
-                      ...submission.fileUrls.map((url) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: _LinkButton(
-                          label: 'Download File', 
-                          url: url, 
-                          icon: Icons.file_download,
-                        ),
-                      )),
-                    ],
-                    const SizedBox(height: 32),
-                    const Text('Grading:', style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        _StatusOption(
-                          status: SubmissionStatus.passed,
-                          current: selectedStatus,
-                          onSelected: (s) => setModalState(() => selectedStatus = s),
-                        ),
-                        const SizedBox(width: 12),
-                        _StatusOption(
-                          status: SubmissionStatus.failed,
-                          current: selectedStatus,
-                          onSelected: (s) => setModalState(() => selectedStatus = s),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    const Text('Instructor Feedback:', style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
+                    const Divider(height: 24),
                     Expanded(
-                      child: TextField(
-                        controller: feedbackCtrl,
-                        decoration: const InputDecoration(
-                          hintText: 'Great job! Here are some tips...',
-                          border: OutlineInputBorder(),
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Student ID:', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.grey.shade600)),
+                            Text(submission.studentId, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 16),
+                            const Text('Links:', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 8),
+                            _LinkButton(label: 'GitHub Repository', url: submission.githubUrl, icon: Icons.code),
+                            if (submission.liveDemoUrl != null) ...[
+                              const SizedBox(height: 8),
+                              _LinkButton(label: 'Live Demo', url: submission.liveDemoUrl!, icon: Icons.launch),
+                            ],
+                            if (submission.fileUrls.isNotEmpty) ...[
+                              const SizedBox(height: 16),
+                              const Text('Attachments:', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 8),
+                              ...submission.fileUrls.map((url) => Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: _LinkButton(
+                                  label: 'Download File', 
+                                  url: url, 
+                                  icon: Icons.file_download,
+                                ),
+                              )),
+                            ],
+                            const SizedBox(height: 24),
+                            const Text('Grading:', style: TextStyle(fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                _StatusOption(
+                                  status: SubmissionStatus.passed,
+                                  current: selectedStatus,
+                                  onSelected: (s) => setModalState(() => selectedStatus = s),
+                                ),
+                                const SizedBox(width: 12),
+                                _StatusOption(
+                                  status: SubmissionStatus.failed,
+                                  current: selectedStatus,
+                                  onSelected: (s) => setModalState(() => selectedStatus = s),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 24),
+                            const Text('Instructor Feedback:', style: TextStyle(fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: feedbackCtrl,
+                              decoration: const InputDecoration(
+                                hintText: 'Great job! Here are some tips...',
+                                border: OutlineInputBorder(),
+                              ),
+                              maxLines: 8,
+                            ),
+                            const SizedBox(height: 16),
+                          ],
                         ),
-                        maxLines: 15,
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
-                      height: 50,
+                      height: 48,
                       child: FilledButton(
                         onPressed: () async {
                           await ref.read(submissionsControllerProvider).gradeSubmission(
@@ -1020,46 +1083,90 @@ class _AttendanceTabViewState extends ConsumerState<_AttendanceTabView> {
         children: [
           Padding(
             padding: const EdgeInsets.all(24.0),
-            child: Row(
-              children: [
-                Text('Date: $dateKey', style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(width: 16),
-                IconButton(
-                  icon: const Icon(Icons.calendar_month),
-                  onPressed: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: _selectedDate,
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime.now(),
-                    );
-                    if (picked != null) setState(() => _selectedDate = picked);
-                  },
-                ),
-                const Spacer(),
-                OutlinedButton.icon(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => OverallAttendanceScreen(cohortId: widget.cohortId)),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isNarrow = constraints.maxWidth < 600;
+                
+                final datePickerRow = Row(
+                  children: [
+                    Text('Date: $dateKey', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(width: 12),
+                    IconButton(
+                      icon: const Icon(Icons.calendar_month),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+                        foregroundColor: Theme.of(context).colorScheme.primary,
+                        minimumSize: const Size(48, 48),
+                      ),
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: _selectedDate,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime.now(),
+                        );
+                        if (picked != null) setState(() => _selectedDate = picked);
+                      },
+                    ),
+                  ],
+                );
+
+                final actionButtons = [
+                  OutlinedButton.icon(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => OverallAttendanceScreen(cohortId: widget.cohortId)),
+                    ),
+                    icon: const Icon(Icons.grid_view),
+                    label: const Text('Overall Matrix'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(140, 48),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
                   ),
-                  icon: const Icon(Icons.grid_view),
-                  label: const Text('Overall Matrix'),
-                ),
-                const SizedBox(width: 12),
-                FilledButton.icon(
-                  onPressed: () async {
-                    await ref.read(attendanceRepositoryProvider).saveAttendance(
-                      cohortId: widget.cohortId,
-                      date: dateKey,
-                      statusMap: _currentStatus,
-                    );
-                    ref.invalidate(attendanceProvider);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Attendance saved')));
-                  },
-                  icon: const Icon(Icons.save),
-                  label: const Text('Save Record'),
-                ),
-              ],
+                  const SizedBox(width: 12),
+                  FilledButton.icon(
+                    onPressed: () async {
+                      await ref.read(attendanceRepositoryProvider).saveAttendance(
+                        cohortId: widget.cohortId,
+                        date: dateKey,
+                        statusMap: _currentStatus,
+                      );
+                      ref.invalidate(attendanceProvider);
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Attendance saved')));
+                    },
+                    icon: const Icon(Icons.save),
+                    label: const Text('Save Record'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(140, 48),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ];
+
+                if (isNarrow) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      datePickerRow,
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: actionButtons.whereType<Widget>().toList(),
+                      ),
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    datePickerRow,
+                    const Spacer(),
+                    ...actionButtons,
+                  ],
+                );
+              }
             ),
           ),
           const Divider(height: 1),
@@ -1134,14 +1241,15 @@ class _SettingsTabView extends ConsumerWidget {
                   const SizedBox(height: 16),
                   Text('Current Code: ${cohort.classCode}', style: const TextStyle(fontSize: 18, letterSpacing: 2)),
                   const SizedBox(height: 24),
-                  Row(
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 12,
                     children: [
                       FilledButton.icon(
                         onPressed: () => _confirmRegenerate(context, ref),
                         icon: const Icon(Icons.refresh),
                         label: const Text('Regenerate Code'),
                       ),
-                      const SizedBox(width: 16),
                       OutlinedButton.icon(
                         onPressed: () => _setExpiry(context, ref),
                         icon: const Icon(Icons.timer_outlined),

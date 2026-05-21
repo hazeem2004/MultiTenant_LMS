@@ -26,9 +26,25 @@ class CurriculumRepository {
     return weeks;
   }
 
+  Stream<List<Week>> watchWeeksForCohort(String cohortId) {
+    return _weeksRef(cohortId).snapshots().map((snapshot) {
+      final weeks = snapshot.docs
+          .map((doc) => Week.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+          .toList();
+      weeks.sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+      return weeks;
+    });
+  }
+
   Future<List<Assignment>> getAssignmentsForWeek(String cohortId, String weekId) async {
     final snapshot = await _weeksRef(cohortId).doc(weekId).collection('assignments').get();
     return snapshot.docs.map((doc) => Assignment.fromMap(doc.data() as Map<String, dynamic>, doc.id)).toList();
+  }
+
+  Stream<List<Assignment>> watchAssignmentsForWeek(String cohortId, String weekId) {
+    return _weeksRef(cohortId).doc(weekId).collection('assignments').snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) => Assignment.fromMap(doc.data() as Map<String, dynamic>, doc.id)).toList();
+    });
   }
 
   Future<List<Quiz>> getQuizzesForWeek(String cohortId, String weekId) async {
@@ -36,9 +52,21 @@ class CurriculumRepository {
     return snapshot.docs.map((doc) => Quiz.fromMap(doc.data() as Map<String, dynamic>, doc.id)).toList();
   }
 
+  Stream<List<Quiz>> watchQuizzesForWeek(String cohortId, String weekId) {
+    return _weeksRef(cohortId).doc(weekId).collection('quizzes').snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) => Quiz.fromMap(doc.data() as Map<String, dynamic>, doc.id)).toList();
+    });
+  }
+
   Future<List<LectureNote>> getLectureNotesForWeek(String cohortId, String weekId) async {
     final snapshot = await _weeksRef(cohortId).doc(weekId).collection('lectureNotes').get();
     return snapshot.docs.map((doc) => LectureNote.fromMap(doc.data() as Map<String, dynamic>, doc.id)).toList();
+  }
+
+  Stream<List<LectureNote>> watchLectureNotesForWeek(String cohortId, String weekId) {
+    return _weeksRef(cohortId).doc(weekId).collection('lectureNotes').snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) => LectureNote.fromMap(doc.data() as Map<String, dynamic>, doc.id)).toList();
+    });
   }
 
   Future<Week> addWeek(String cohortId, String title) async {

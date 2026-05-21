@@ -13,9 +13,23 @@ class EnrollmentRepository {
     return snapshot.docs.map((doc) => Enrollment.fromMap(doc.id, doc.data())).toList();
   }
 
+  Stream<List<Enrollment>> watchEnrollmentsForStudent(String studentId) {
+    return _enrollmentsRef
+        .where('studentId', isEqualTo: studentId)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => Enrollment.fromMap(doc.id, doc.data())).toList());
+  }
+
   Future<List<Enrollment>> getEnrollmentsForCohort(String cohortId) async {
     final snapshot = await _enrollmentsRef.where('cohortId', isEqualTo: cohortId).get();
     return snapshot.docs.map((doc) => Enrollment.fromMap(doc.id, doc.data())).toList();
+  }
+
+  Stream<List<Enrollment>> watchEnrollmentsForCohort(String cohortId) {
+    return _enrollmentsRef
+        .where('cohortId', isEqualTo: cohortId)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => Enrollment.fromMap(doc.id, doc.data())).toList());
   }
 
   Future<Enrollment> enrollStudent(String studentId, String cohortId) async {
