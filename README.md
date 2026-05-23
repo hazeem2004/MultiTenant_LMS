@@ -71,7 +71,7 @@ DevCohort is a professional-grade Learning Management System built with **Flutte
 
 ## 📸 Demo
 *Check out the latest Instructor Dashboard walkthrough:*
-![Analytics Demo](devcohort_lms_hero_1778944224356.png)
+[![Analytics Demo](devcohort_lms_hero_1778944224356.png)](https://drive.google.com/file/d/1JoPMrjCGiIEtVoinojJDTOBznsxBfwHo/view?usp=drivesdk)
 
 ---
 
