@@ -1,7 +1,6 @@
 # DevCohort LMS 🚀
 ### A Powerful, Multi-Tenant Learning Management System
 
-![DevCohort LMS Hero](devcohort_lms_hero_1778944224356.png)
 
 DevCohort is a professional-grade Learning Management System built with **Flutter** and **Firebase**. It provides a robust "Teaching Engine" for instructors and a "God Mode" for administrators to manage large-scale coding bootcamps and educational cohorts.
 
